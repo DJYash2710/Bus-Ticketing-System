@@ -1,0 +1,339 @@
+// ---------- Prisma setup ----------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------- Enums ----------
+
+enum UserRole {
+  USER
+  ADMIN
+  OPERATOR
+}
+
+enum BusType {
+  SEATER
+  SLEEPER
+  SEMI_SLEEPER
+  AC
+  NON_AC
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum SeatStatus {
+  AVAILABLE
+  HELD
+  BOOKED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum LoyaltyEventType {
+  EARN_BOOKING
+  EARN_REFERRAL
+  REDEEM_BOOKING
+  ADJUSTMENT
+}
+
+// ---------- Core auth / user models ----------
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String
+  role         UserRole @default(USER)
+  isActive     Boolean  @default(true)
+
+  // Referral system
+  referralCode String? @unique
+  referredById Int?
+  referredBy   User?   @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals    User[]  @relation("UserReferrals")
+
+  // Loyalty
+  creditsBalance Int            @default(0)
+  loyaltyEvents  LoyaltyEvent[]
+
+  // Relations
+  bookings      Booking[]
+  refreshTokens RefreshToken[]
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  couponRedemptions CouponRedemption[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique // store hashed token ideally
+  userAgent String?
+  ipAddress String?
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isRevoked])
+  @@index([expiresAt])
+}
+
+// ---------- Bus, route, schedule ----------
+
+model BusOperator {
+  id           Int     @id @default(autoincrement())
+  name         String
+  contactEmail String?
+  contactPhone String?
+
+  buses Bus[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model City {
+  id      Int     @id @default(autoincrement())
+  name    String
+  state   String?
+  country String? @default("India")
+
+  routesFrom Route[] @relation("RouteFromCity")
+  routesTo   Route[] @relation("RouteToCity")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, state, country])
+}
+
+model Route {
+  id          Int    @id @default(autoincrement())
+  code        String @unique
+  fromCityId  Int
+  toCityId    Int
+  distanceKm  Int?
+  durationMin Int?
+
+  fromCity City @relation("RouteFromCity", fields: [fromCityId], references: [id])
+  toCity   City @relation("RouteToCity", fields: [toCityId], references: [id])
+
+  schedules Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromCityId, toCityId])
+}
+
+model Bus {
+  id             Int     @id @default(autoincrement())
+  operatorId     Int?
+  registrationNo String  @unique
+  name           String
+  capacity       Int
+  type           BusType
+  amenities      String? // JSON or comma-separated list
+
+  operator  BusOperator? @relation(fields: [operatorId], references: [id])
+  schedules Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Schedule {
+  id            Int            @id @default(autoincrement())
+  routeId       Int
+  busId         Int
+  departureTime DateTime
+  arrivalTime   DateTime?
+  basePrice     Decimal        @db.Decimal(10, 2)
+  status        ScheduleStatus @default(ACTIVE)
+
+  route Route @relation(fields: [routeId], references: [id])
+  bus   Bus   @relation(fields: [busId], references: [id])
+
+  seats    Seat[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([routeId, departureTime])
+  @@index([busId, departureTime])
+}
+
+// ---------- Seats & bookings ----------
+
+model Seat {
+  id         Int        @id @default(autoincrement())
+  scheduleId Int
+  seatNumber String
+  row        Int?
+  col        Int?
+  deck       String? // upper/lower, etc.
+  status     SeatStatus @default(AVAILABLE)
+
+  schedule     Schedule      @relation(fields: [scheduleId], references: [id])
+  bookingSeats BookingSeat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scheduleId, seatNumber])
+  @@index([scheduleId, status])
+}
+
+model Booking {
+  id         Int @id @default(autoincrement())
+  userId     Int
+  scheduleId Int
+
+  // Pricing breakdown
+  baseAmount       Decimal @db.Decimal(10, 2) // before tax/discounts
+  taxAmount        Decimal @default(0) @db.Decimal(10, 2)
+  discountAmount   Decimal @default(0) @db.Decimal(10, 2) // coupon + referral credits
+  commissionRate   Decimal @default(0.0500) @db.Decimal(5, 4) // 5% default
+  commissionAmount Decimal @default(0) @db.Decimal(10, 2)
+  totalAmount      Decimal @db.Decimal(10, 2) // final user pay
+
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  bookedAt      DateTime      @default(now())
+  cancelledAt   DateTime?
+
+  user     User     @relation(fields: [userId], references: [id])
+  schedule Schedule @relation(fields: [scheduleId], references: [id])
+
+  seats         BookingSeat[]
+  payment       Payment?
+  loyaltyEvents LoyaltyEvent[] // for REDEEM_BOOKING links if needed
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  couponRedemptions CouponRedemption[]
+
+  @@index([userId, bookedAt])
+  @@index([scheduleId, status])
+}
+
+model BookingSeat {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+  seatId    Int
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  seat    Seat    @relation(fields: [seatId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, seatId])
+}
+
+// ---------- Payments ----------
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  bookingId   Int           @unique
+  provider    String // e.g. RAZORPAY, STRIPE, MOCK
+  providerRef String? // transaction id, etc.
+  amount      Decimal       @db.Decimal(10, 2)
+  status      PaymentStatus @default(PENDING)
+  rawResponse String? // JSON from gateway if you want
+  paidAt      DateTime?
+  refundedAt  DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// ---------- Coupons ----------
+
+model Coupon {
+  id             Int        @id @default(autoincrement())
+  code           String     @unique
+  type           CouponType
+  value          Decimal    @db.Decimal(10, 2) // percent or fixed
+  maxUsesPerUser Int?
+  maxGlobalUses  Int?
+  usedCount      Int        @default(0)
+  isActive       Boolean    @default(true)
+  validFrom      DateTime?
+  validTo        DateTime?
+
+  redemptions CouponRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CouponRedemption {
+  id        Int @id @default(autoincrement())
+  couponId  Int
+  userId    Int
+  bookingId Int
+
+  coupon  Coupon  @relation(fields: [couponId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([couponId, userId]) // once per user per coupon
+}
+
+// ---------- Loyalty Events ----------
+
+model LoyaltyEvent {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  type        LoyaltyEventType
+  bookingId   Int?
+  credits     Int // +ve earn, -ve redeem
+  description String?
+
+  user    User     @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([bookingId])
+}
