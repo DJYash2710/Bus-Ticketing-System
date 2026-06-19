@@ -12,6 +12,8 @@ import { busRouter } from "./features/buses/routes.js";
 import { cityRouter } from "./features/cities/routes.js";
 import { routeRouter } from "./features/routes/routes.js";
 import { scheduleRouter } from "./features/schedules/routes.js";
+import { seatRouter } from "./features/seats/routes.js";
+
 const app = express();
 
 app.use(helmet());
@@ -44,6 +46,7 @@ app.use("/api/v1/buses", busRouter);
 app.use("/api/v1/cities", cityRouter);
 app.use("/api/v1/routes", routeRouter);
 app.use("/api/v1/schedules", scheduleRouter);
+app.use("/api/v1/seats", seatRouter);
 
 // 404 + error handlers
 app.use(notFoundHandler);
