@@ -8,7 +8,7 @@ import { logger } from "./config/logger.js";
 import { notFoundHandler } from "./core/middleware/notFound.middleware.js";
 import { errorHandler } from "./core/middleware/error.middleware.js";
 import { authRouter } from "./features/auth/routes.js";
-
+import { busRouter } from "./features/buses/routes.js";
 const app = express();
 
 app.use(helmet());
@@ -37,6 +37,7 @@ app.get("/health", (_req, res) => {
 
 // Feature routes (prefix with /api/v1)
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/buses", busRouter);
 
 // 404 + error handlers
 app.use(notFoundHandler);
