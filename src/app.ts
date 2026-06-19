@@ -9,6 +9,8 @@ import { notFoundHandler } from "./core/middleware/notFound.middleware.js";
 import { errorHandler } from "./core/middleware/error.middleware.js";
 import { authRouter } from "./features/auth/routes.js";
 import { busRouter } from "./features/buses/routes.js";
+import { cityRouter } from "./features/cities/routes.js";
+import { routeRouter } from "./features/routes/routes.js";
 const app = express();
 
 app.use(helmet());
@@ -38,6 +40,8 @@ app.get("/health", (_req, res) => {
 // Feature routes (prefix with /api/v1)
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/buses", busRouter);
+app.use("/api/v1/cities", cityRouter);
+app.use("/api/v1/routes", routeRouter);
 
 // 404 + error handlers
 app.use(notFoundHandler);
