@@ -13,6 +13,7 @@ import { cityRouter } from "./features/cities/routes.js";
 import { routeRouter } from "./features/routes/routes.js";
 import { scheduleRouter } from "./features/schedules/routes.js";
 import { seatRouter } from "./features/seats/routes.js";
+import { searchRouter } from "./features/search/routes.js";
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use("/api/v1/cities", cityRouter);
 app.use("/api/v1/routes", routeRouter);
 app.use("/api/v1/schedules", scheduleRouter);
 app.use("/api/v1/seats", seatRouter);
+app.use("/api/v1/search", searchRouter);
 
 // 404 + error handlers
 app.use(notFoundHandler);

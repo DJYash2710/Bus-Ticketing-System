@@ -1,6 +1,6 @@
 // src/core/middleware/validate.middleware.ts
 import type { NextFunction, Request, Response } from "express";
-import Joi, { type ObjectSchema } from "joi";
+import type { ObjectSchema } from "joi";
 import { ApiError } from "../utils/apiError.js";
 
 type SchemaConfig = {
@@ -17,6 +17,7 @@ export function validate(schema: SchemaConfig) {
           abortEarly: false,
           stripUnknown: true,
         });
+
         if (error) {
           const details = error.details.map((d) => d.message);
           throw new ApiError(
@@ -24,6 +25,7 @@ export function validate(schema: SchemaConfig) {
             `Invalid request body: ${details.join(", ")}`,
           );
         }
+
         req.body = value;
       }
 
@@ -31,7 +33,9 @@ export function validate(schema: SchemaConfig) {
         const { error, value } = schema.query.validate(req.query, {
           abortEarly: false,
           stripUnknown: true,
+          convert: true,
         });
+
         if (error) {
           const details = error.details.map((d) => d.message);
           throw new ApiError(
@@ -39,7 +43,8 @@ export function validate(schema: SchemaConfig) {
             `Invalid query params: ${details.join(", ")}`,
           );
         }
-        req.query = value;
+
+        (req as Request & { validatedQuery?: unknown }).validatedQuery = value;
       }
 
       if (schema.params) {
@@ -47,6 +52,7 @@ export function validate(schema: SchemaConfig) {
           abortEarly: false,
           stripUnknown: true,
         });
+
         if (error) {
           const details = error.details.map((d) => d.message);
           throw new ApiError(
@@ -54,6 +60,7 @@ export function validate(schema: SchemaConfig) {
             `Invalid route params: ${details.join(", ")}`,
           );
         }
+
         req.params = value;
       }
 

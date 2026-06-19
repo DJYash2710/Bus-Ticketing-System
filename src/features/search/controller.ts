@@ -1,0 +1,27 @@
+import type { Request, Response, NextFunction } from "express";
+import { searchSchedules } from "./service.js";
+
+export async function searchSchedulesController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const fromCityId = Number(req.query.fromCityId);
+    const toCityId = Number(req.query.toCityId);
+    const date = String(req.query.date);
+
+    const result = await searchSchedules({
+      fromCityId,
+      toCityId,
+      date,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
