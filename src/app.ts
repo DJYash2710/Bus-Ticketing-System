@@ -16,6 +16,10 @@ import { seatRouter } from "./features/seats/routes.js";
 import { searchRouter } from "./features/search/routes.js";
 import { bookingRouter } from "./features/bookings/routes.js";
 import { paymentRouter } from "./features/payments/routes.js";
+import { adminRouter } from "./features/admin/routes.js";
+import { couponRouter } from "./features/coupons/routes.js";
+import { loyaltyRouter } from "./features/loyalty/routes.js";
+import { userRouter } from "./features/users/routes.js";
 
 const app = express();
 
@@ -53,6 +57,10 @@ app.use("/api/v1/seats", seatRouter);
 app.use("/api/v1/search", searchRouter);
 app.use("/api/v1/bookings", bookingRouter);
 app.use("/api/v1/payments", paymentRouter);
+app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/coupons", couponRouter);
+app.use("/api/v1/loyalty", loyaltyRouter);
+app.use("/api/v1/users", userRouter);
 // 404 + error handlers
 app.use(notFoundHandler);
 app.use(errorHandler);

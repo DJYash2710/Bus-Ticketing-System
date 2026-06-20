@@ -1,6 +1,7 @@
 import { PaymentStatus, BookingStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
+import { calculateLoyaltyCreditsEarned } from "../../core/utils/pricing.js";
 
 export async function initiatePayment(bookingId: number, userId: number) {
   const booking = await prisma.booking.findFirst({
@@ -58,10 +59,40 @@ export async function confirmPayment(paymentId: number, userId: number) {
       },
     });
 
-    await tx.booking.update({
+    const booking = await tx.booking.update({
       where: { id: payment.bookingId },
       data: { paymentStatus: PaymentStatus.SUCCESS },
     });
+
+    const creditsEarned = calculateLoyaltyCreditsEarned(Number(booking.baseAmount));
+
+    if (creditsEarned > 0) {
+      const existingEarn = await tx.loyaltyEvent.findFirst({
+        where: {
+          bookingId: booking.id,
+          type: "EARN_BOOKING",
+        },
+      });
+
+      if (!existingEarn) {
+        await tx.loyaltyEvent.create({
+          data: {
+            userId: booking.userId,
+            bookingId: booking.id,
+            type: "EARN_BOOKING",
+            credits: creditsEarned,
+            description: `Earned ${creditsEarned} credits on booking #${booking.id}`,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: booking.userId },
+          data: {
+            creditsBalance: { increment: creditsEarned },
+          },
+        });
+      }
+    }
 
     return updatedPayment;
   });

@@ -1,6 +1,16 @@
-import { BookingStatus, ScheduleStatus, SeatStatus } from "@prisma/client";
+import {
+  BookingStatus,
+  PaymentStatus,
+  ScheduleStatus,
+  SeatStatus,
+} from "@prisma/client";
 import { prisma } from "../../config/db.js";
+import { env } from "../../config/env.js";
 import { ApiError } from "../../core/utils/apiError.js";
+import {
+  calculateCreditsDiscount,
+} from "../../core/utils/pricing.js";
+import { resolveCouponForBooking } from "../coupons/service.js";
 
 type CreateBookingInput = {
   userId: number;
@@ -8,6 +18,8 @@ type CreateBookingInput = {
   seatNumbers: string[];
   boardingPoint: string;
   droppingPoint: string;
+  couponCode?: string;
+  creditsToRedeem?: number;
 };
 
 type BookingSeatWithSeat = {
@@ -80,8 +92,38 @@ export async function createBooking(input: CreateBookingInput) {
 
   const baseAmount = Number(schedule.basePrice) * seats.length;
   const taxAmount = 0;
-  const discountAmount = 0;
-  const commissionRate = 0.05;
+  let couponDiscount = 0;
+  let creditsDiscount = 0;
+  let couponId: number | undefined;
+  const creditsToRedeem = input.creditsToRedeem ?? 0;
+
+  if (input.couponCode) {
+    const couponResult = await resolveCouponForBooking(
+      input.couponCode,
+      input.userId,
+      baseAmount,
+    );
+    couponDiscount = couponResult.discountAmount;
+    couponId = couponResult.coupon.id;
+  }
+
+  if (creditsToRedeem > 0) {
+    const user = await prisma.user.findUnique({ where: { id: input.userId } });
+    if (!user) throw new ApiError(404, "User not found");
+
+    if (creditsToRedeem > user.creditsBalance) {
+      throw new ApiError(400, "Insufficient credits balance");
+    }
+
+    creditsDiscount = calculateCreditsDiscount(creditsToRedeem);
+  }
+
+  const discountAmount = couponDiscount + creditsDiscount;
+  if (discountAmount > baseAmount) {
+    throw new ApiError(400, "Total discount cannot exceed base amount");
+  }
+
+  const commissionRate = env.platformCommissionRate;
   const commissionAmount = baseAmount * commissionRate;
   const totalAmount = baseAmount + taxAmount - discountAmount;
 
@@ -146,6 +188,38 @@ export async function createBooking(input: CreateBookingInput) {
         seatId: seat.id,
       })),
     });
+
+    if (couponId) {
+      await tx.couponRedemption.create({
+        data: {
+          couponId,
+          userId: input.userId,
+          bookingId: createdBooking.id,
+        },
+      });
+
+      await tx.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    if (creditsToRedeem > 0) {
+      await tx.loyaltyEvent.create({
+        data: {
+          userId: input.userId,
+          bookingId: createdBooking.id,
+          type: "REDEEM_BOOKING",
+          credits: -creditsToRedeem,
+          description: `Redeemed ${creditsToRedeem} credits on booking #${createdBooking.id}`,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: input.userId },
+        data: { creditsBalance: { decrement: creditsToRedeem } },
+      });
+    }
 
     return tx.booking.findUnique({
       where: { id: createdBooking.id },
@@ -267,12 +341,73 @@ export async function cancelBooking(bookingId: number, userId: number) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const bookingUpdate: {
+      status: BookingStatus;
+      cancelledAt: Date;
+      paymentStatus?: PaymentStatus;
+    } = {
+      status: BookingStatus.CANCELLED,
+      cancelledAt: new Date(),
+    };
+
+    if (booking.paymentStatus === PaymentStatus.SUCCESS) {
+      bookingUpdate.paymentStatus = PaymentStatus.REFUNDED;
+
+      await tx.payment.updateMany({
+        where: { bookingId: booking.id, status: PaymentStatus.SUCCESS },
+        data: {
+          status: PaymentStatus.REFUNDED,
+          refundedAt: new Date(),
+        },
+      });
+
+      const earnEvent = await tx.loyaltyEvent.findFirst({
+        where: { bookingId: booking.id, type: "EARN_BOOKING" },
+      });
+
+      if (earnEvent && earnEvent.credits > 0) {
+        await tx.user.update({
+          where: { id: booking.userId },
+          data: { creditsBalance: { decrement: earnEvent.credits } },
+        });
+
+        await tx.loyaltyEvent.create({
+          data: {
+            userId: booking.userId,
+            bookingId: booking.id,
+            type: "ADJUSTMENT",
+            credits: -earnEvent.credits,
+            description: `Reversed ${earnEvent.credits} credits after booking #${booking.id} cancellation`,
+          },
+        });
+      }
+    }
+
+    const redeemEvent = await tx.loyaltyEvent.findFirst({
+      where: { bookingId: booking.id, type: "REDEEM_BOOKING" },
+    });
+
+    if (redeemEvent && redeemEvent.credits < 0) {
+      const creditsToRestore = Math.abs(redeemEvent.credits);
+      await tx.user.update({
+        where: { id: booking.userId },
+        data: { creditsBalance: { increment: creditsToRestore } },
+      });
+
+      await tx.loyaltyEvent.create({
+        data: {
+          userId: booking.userId,
+          bookingId: booking.id,
+          type: "ADJUSTMENT",
+          credits: creditsToRestore,
+          description: `Restored ${creditsToRestore} credits after booking #${booking.id} cancellation`,
+        },
+      });
+    }
+
     await tx.booking.update({
       where: { id: booking.id },
-      data: {
-        status: BookingStatus.CANCELLED,
-        cancelledAt: new Date(),
-      },
+      data: bookingUpdate,
     });
 
     await tx.seat.updateMany({

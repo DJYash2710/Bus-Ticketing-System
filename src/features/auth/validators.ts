@@ -17,3 +17,9 @@ export const loginSchema = {
     password: Joi.string().min(8).max(128).required(),
   }),
 };
+
+export const refreshSchema = {
+  body: Joi.object({
+    refreshToken: Joi.string().required(),
+  }),
+};

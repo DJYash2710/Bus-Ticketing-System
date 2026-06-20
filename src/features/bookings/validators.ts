@@ -9,6 +9,8 @@ export const createBookingSchema = {
       .required(),
     boardingPoint: Joi.string().trim().min(2).required(),
     droppingPoint: Joi.string().trim().min(2).required(),
+    couponCode: Joi.string().trim().uppercase().optional(),
+    creditsToRedeem: Joi.number().integer().min(0).optional(),
   }),
 };
 

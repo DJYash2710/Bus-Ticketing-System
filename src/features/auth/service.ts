@@ -3,7 +3,11 @@ import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
-import { signAccessToken, signRefreshToken } from "../../core/utils/jwt.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from "../../core/utils/jwt.js";
 import { env } from "../../config/env.js";
 import { UserRole } from "@prisma/client";
 
@@ -166,4 +170,60 @@ export async function loginUser(input: LoginInput) {
       refreshToken: refreshTokenJwt,
     },
   };
+}
+
+export async function refreshTokens(refreshToken: string) {
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+  });
+
+  if (!user || !user.isActive) {
+    throw new ApiError(401, "User not found or inactive");
+  }
+
+  const tokenPayload = { sub: user.id, role: user.role };
+  const accessToken = signAccessToken(tokenPayload);
+  const newRefreshToken = signRefreshToken(tokenPayload);
+
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: uuidv4(),
+      userAgent: "unknown",
+      ipAddress: "unknown",
+      isRevoked: false,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      creditsBalance: user.creditsBalance,
+      referralCode: user.referralCode,
+    },
+    tokens: {
+      accessToken,
+      refreshToken: newRefreshToken,
+    },
+  };
+}
+
+export async function logoutUser(userId: number) {
+  await prisma.refreshToken.updateMany({
+    where: { userId, isRevoked: false },
+    data: { isRevoked: true },
+  });
+
+  return { message: "Logged out successfully" };
 }

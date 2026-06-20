@@ -36,6 +36,8 @@ export async function createBookingController(
       seatNumbers: req.body.seatNumbers,
       boardingPoint: req.body.boardingPoint,
       droppingPoint: req.body.droppingPoint,
+      couponCode: req.body.couponCode,
+      creditsToRedeem: req.body.creditsToRedeem,
     });
 
     res.status(201).json({
