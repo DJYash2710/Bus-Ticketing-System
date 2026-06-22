@@ -38,6 +38,7 @@ enum SeatStatus {
 enum BookingStatus {
   PENDING
   CONFIRMED
+  EXPIRED
   CANCELLED
 }
 
@@ -46,6 +47,8 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REFUNDED
+  REFUND_PENDING
+  CANCELLED
 }
 
 enum CouponType {
@@ -216,6 +219,7 @@ model Seat {
   col        Int?
   deck       String?
   status     SeatStatus @default(AVAILABLE)
+  heldUntil  DateTime?
 
   schedule     Schedule      @relation(fields: [scheduleId], references: [id])
   bookingSeats BookingSeat[]
@@ -225,6 +229,7 @@ model Seat {
 
   @@unique([scheduleId, seatNumber])
   @@index([scheduleId, status])
+  @@index([status, heldUntil])
 }
 
 // ─── Booking ─────────────────────────────────────────────────────────────────
@@ -244,7 +249,10 @@ model Booking {
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
   bookedAt      DateTime      @default(now())
-  cancelledAt   DateTime?
+  holdExpiresAt        DateTime?
+  expiredAt            DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
 
   user     User     @relation(fields: [userId], references: [id])
   schedule Schedule @relation(fields: [scheduleId], references: [id])
@@ -259,6 +267,7 @@ model Booking {
 
   @@index([userId, bookedAt])
   @@index([scheduleId, status])
+  @@index([status, holdExpiresAt])
 }
 
 model BookingSeat {
@@ -347,4 +356,24 @@ model LoyaltyEvent {
 
   @@index([userId, createdAt])
   @@index([bookingId])
+}
+
+// ─── Audit ───────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   Int?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

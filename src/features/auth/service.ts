@@ -12,6 +12,12 @@ import {
 import { env } from "../../config/env.js";
 import { UserRole } from "@prisma/client";
 import { logAuthEvent } from "./authLog.js";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLog, auditLogFrom } from "../../core/audit/auditLog.service.js";
+import {
+  auditContextFromClient,
+  type AuditContext,
+} from "../../core/audit/requestContext.js";
 
 const SALT_ROUNDS = 10;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -177,6 +183,13 @@ export async function registerUser(
     ip: client.ipAddress,
   });
 
+  auditLogFrom(auditContextFromClient(result.user.id, result.user.role, client), {
+    action: AuditAction.REGISTER,
+    entityType: AuditEntityType.USER,
+    entityId: result.user.id,
+    metadata: { email: result.user.email },
+  });
+
   return result;
 }
 
@@ -191,6 +204,15 @@ export async function loginUser(input: LoginInput, client: ClientMeta) {
       email: input.email,
       ip: client.ipAddress,
     });
+    auditLog({
+      actorId: null,
+      actorRole: null,
+      ipAddress: client.ipAddress,
+      userAgent: client.userAgent,
+      action: AuditAction.LOGIN_FAILED,
+      entityType: AuditEntityType.USER,
+      metadata: { email: input.email },
+    });
     throw new ApiError(401, "Invalid credentials");
   }
 
@@ -200,6 +222,16 @@ export async function loginUser(input: LoginInput, client: ClientMeta) {
       event: "login_failure",
       email: input.email,
       ip: client.ipAddress,
+    });
+    auditLog({
+      actorId: user.id,
+      actorRole: user.role,
+      ipAddress: client.ipAddress,
+      userAgent: client.userAgent,
+      action: AuditAction.LOGIN_FAILED,
+      entityType: AuditEntityType.USER,
+      entityId: user.id,
+      metadata: { email: input.email },
     });
     throw new ApiError(401, "Invalid credentials");
   }
@@ -225,6 +257,13 @@ export async function loginUser(input: LoginInput, client: ClientMeta) {
     userId: user.id,
     email: user.email,
     ip: client.ipAddress,
+  });
+
+  auditLogFrom(auditContextFromClient(user.id, user.role, client), {
+    action: AuditAction.LOGIN_SUCCESS,
+    entityType: AuditEntityType.USER,
+    entityId: user.id,
+    metadata: { email: user.email },
   });
 
   return {
@@ -345,6 +384,13 @@ export async function refreshTokens(
     ip: client.ipAddress,
   });
 
+  auditLogFrom(auditContextFromClient(user.id, user.role, client), {
+    action: AuditAction.REFRESH_TOKEN,
+    entityType: AuditEntityType.USER,
+    entityId: user.id,
+    metadata: { email: user.email },
+  });
+
   return {
     user: {
       id: user.id,
@@ -361,7 +407,11 @@ export async function refreshTokens(
   };
 }
 
-export async function logoutUser(userId: number, ip?: string) {
+export async function logoutUser(
+  userId: number,
+  ip?: string,
+  audit?: AuditContext,
+) {
   await prisma.refreshToken.updateMany({
     where: { userId, isRevoked: false },
     data: { isRevoked: true },
@@ -371,6 +421,12 @@ export async function logoutUser(userId: number, ip?: string) {
     event: "logout",
     userId,
     ...(ip !== undefined ? { ip } : {}),
+  });
+
+  auditLogFrom(audit ?? { actorId: userId, ipAddress: ip ?? null }, {
+    action: AuditAction.LOGOUT,
+    entityType: AuditEntityType.USER,
+    entityId: userId,
   });
 
   return { message: "Logged out successfully" };

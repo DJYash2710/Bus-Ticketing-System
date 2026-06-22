@@ -1,5 +1,6 @@
 import { SeatStatus } from "@prisma/client";
 import type { AuthUser } from "../../core/middleware/auth.middleware.js";
+import type { AuditContext } from "../../core/audit/requestContext.js";
 type ListSeatsFilters = {
     scheduleId: number;
     status?: SeatStatus;
@@ -62,6 +63,7 @@ export declare function listSeatsBySchedule(filters: ListSeatsFilters): Promise<
         row: number | null;
         col: number | null;
         deck: string | null;
+        heldUntil: Date | null;
     }[];
 }>;
 export declare function getSeatById(id: number): Promise<{
@@ -92,6 +94,7 @@ export declare function getSeatById(id: number): Promise<{
             durationMin: number | null;
             createdAt: Date;
             updatedAt: Date;
+            estimatedDurationMinutes: number | null;
         };
         bus: {
             type: import(".prisma/client").$Enums.BusType;
@@ -105,15 +108,18 @@ export declare function getSeatById(id: number): Promise<{
             amenities: string | null;
         };
     } & {
+        color: string | null;
         id: number;
-        status: import(".prisma/client").$Enums.ScheduleStatus;
-        routeId: number;
-        busId: number;
-        departureTime: Date;
-        arrivalTime: Date | null;
         basePrice: import("@prisma/client/runtime/library").Decimal;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        departureTime: Date;
+        busId: number;
+        routeId: number;
         createdAt: Date;
         updatedAt: Date;
+        arrivalTime: Date | null;
+        recurrenceGroupId: string | null;
+        isRecurrenceException: boolean;
     };
     bookingSeats: ({
         booking: {
@@ -131,7 +137,10 @@ export declare function getSeatById(id: number): Promise<{
             totalAmount: import("@prisma/client/runtime/library").Decimal;
             paymentStatus: import(".prisma/client").$Enums.PaymentStatus;
             bookedAt: Date;
+            holdExpiresAt: Date | null;
+            expiredAt: Date | null;
             cancelledAt: Date | null;
+            cancellationReason: string | null;
         };
     } & {
         id: number;
@@ -149,8 +158,9 @@ export declare function getSeatById(id: number): Promise<{
     row: number | null;
     col: number | null;
     deck: string | null;
+    heldUntil: Date | null;
 }>;
-export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInput, caller: AuthUser): Promise<{
+export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     schedule: {
         route: {
             fromCity: {
@@ -178,6 +188,7 @@ export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInpu
             durationMin: number | null;
             createdAt: Date;
             updatedAt: Date;
+            estimatedDurationMinutes: number | null;
         };
         bus: {
             type: import(".prisma/client").$Enums.BusType;
@@ -191,15 +202,18 @@ export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInpu
             amenities: string | null;
         };
     } & {
+        color: string | null;
         id: number;
-        status: import(".prisma/client").$Enums.ScheduleStatus;
-        routeId: number;
-        busId: number;
-        departureTime: Date;
-        arrivalTime: Date | null;
         basePrice: import("@prisma/client/runtime/library").Decimal;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        departureTime: Date;
+        busId: number;
+        routeId: number;
         createdAt: Date;
         updatedAt: Date;
+        arrivalTime: Date | null;
+        recurrenceGroupId: string | null;
+        isRecurrenceException: boolean;
     };
 } & {
     id: number;
@@ -211,6 +225,7 @@ export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInpu
     row: number | null;
     col: number | null;
     deck: string | null;
+    heldUntil: Date | null;
 }>;
 export {};
 //# sourceMappingURL=service.d.ts.map

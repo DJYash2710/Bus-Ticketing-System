@@ -9,6 +9,10 @@ import {
 } from "../../core/utils/operatorScope.js";
 import { ScheduleStatus, SeatStatus, type Prisma } from "@prisma/client";
 import { ROUTE_DURATION_REQUIRED_MSG } from "./validators.js";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLogFrom } from "../../core/audit/auditLog.service.js";
+import type { AuditContext } from "../../core/audit/requestContext.js";
+import { cancelScheduleCascade } from "./cancelCascade.js";
 
 export type RecurrenceInput = {
   frequency: "DAILY" | "WEEKLY" | "MONTHLY";
@@ -299,6 +303,7 @@ async function createScheduleWithSeats(
 export async function createSchedule(
   input: CreateScheduleInput,
   caller: AuthUser,
+  audit?: AuditContext,
 ) {
   const route = await prisma.route.findUnique({
     where: { id: input.routeId },
@@ -345,7 +350,25 @@ export async function createSchedule(
       }),
     );
 
-    return { schedule, schedules: [schedule], recurrenceGroupId: null, count: 1 };
+    const singleResult = {
+      schedule,
+      schedules: [schedule],
+      recurrenceGroupId: null,
+      count: 1,
+    };
+
+    auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
+      action: AuditAction.SCHEDULE_CREATED,
+      entityType: AuditEntityType.SCHEDULE,
+      entityId: schedule.id,
+      metadata: {
+        routeId: input.routeId,
+        busId: input.busId,
+        departureTime: schedule.departureTime,
+      },
+    });
+
+    return singleResult;
   }
 
   const recurrenceGroupId = uuidv4();
@@ -392,12 +415,29 @@ export async function createSchedule(
     return created;
   });
 
-  return {
+  const recurrenceResult = {
     schedule: schedules[0],
     schedules,
     recurrenceGroupId,
     count: schedules.length,
   };
+
+  const auditCtx = audit ?? { actorId: caller.id, actorRole: caller.role };
+  for (const row of schedules) {
+    auditLogFrom(auditCtx, {
+      action: AuditAction.SCHEDULE_CREATED,
+      entityType: AuditEntityType.SCHEDULE,
+      entityId: row.id,
+      metadata: {
+        routeId: input.routeId,
+        busId: input.busId,
+        departureTime: row.departureTime,
+        recurrenceGroupId,
+      },
+    });
+  }
+
+  return recurrenceResult;
 }
 
 export async function listSchedules(
@@ -534,6 +574,7 @@ export async function updateSchedule(
   id: number,
   input: UpdateScheduleInput,
   caller: AuthUser,
+  audit?: AuditContext,
 ) {
   const schedule = await prisma.schedule.findUnique({
     where: { id },
@@ -603,6 +644,28 @@ export async function updateSchedule(
     }
   }
 
+  if (input.status === ScheduleStatus.CANCELLED) {
+    const auditCtx = audit ?? { actorId: caller.id, actorRole: caller.role };
+    let lastResult = await cancelScheduleCascade(id, auditCtx);
+
+    for (const targetId of targetIds) {
+      if (targetId === id) continue;
+      lastResult = await cancelScheduleCascade(targetId, auditCtx);
+    }
+
+    const updated = await prisma.schedule.findUnique({
+      where: { id },
+      include: scheduleInclude,
+    });
+
+    return {
+      schedule: formatSchedule(updated!),
+      affectedCount: targetIds.length,
+      cancellation: lastResult.summary,
+      alreadyCancelled: lastResult.alreadyCancelled,
+    };
+  }
+
   const updateData: Prisma.ScheduleUpdateInput = {};
   if (input.basePrice !== undefined) updateData.basePrice = input.basePrice;
   if (input.status !== undefined) updateData.status = input.status;
@@ -645,6 +708,19 @@ export async function updateSchedule(
   const updated = await prisma.schedule.findUnique({
     where: { id },
     include: scheduleInclude,
+  });
+
+  const auditCtx = audit ?? { actorId: caller.id, actorRole: caller.role };
+
+  auditLogFrom(auditCtx, {
+    action: AuditAction.SCHEDULE_UPDATED,
+    entityType: AuditEntityType.SCHEDULE,
+    entityId: id,
+    metadata: {
+      scope,
+      affectedCount,
+      status: input.status ?? schedule.status,
+    },
   });
 
   return {

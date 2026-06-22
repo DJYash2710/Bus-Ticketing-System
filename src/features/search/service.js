@@ -1,7 +1,9 @@
 import { SeatStatus, ScheduleStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
+import { expireStaleHolds } from "../bookings/holdExpiry.js";
 export async function searchSchedules(input) {
+    await expireStaleHolds();
     if (input.fromCityId === input.toCityId) {
         throw new ApiError(400, "Source and destination cities must be different");
     }

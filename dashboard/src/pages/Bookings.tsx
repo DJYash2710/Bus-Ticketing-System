@@ -127,6 +127,7 @@ export function Bookings() {
             <option value="">All statuses</option>
             <option value="PENDING">Pending</option>
             <option value="CONFIRMED">Confirmed</option>
+            <option value="EXPIRED">Expired</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
         )}

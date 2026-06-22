@@ -8,6 +8,7 @@ import {
   getMyBookings,
   getOperatorBookings,
 } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 type AuthRequest = Request & {
   user?: {
@@ -33,15 +34,18 @@ export async function createBookingController(
       });
     }
 
-    const result = await createBooking({
-      userId,
-      scheduleId: req.body.scheduleId,
-      seatNumbers: req.body.seatNumbers,
-      boardingPoint: req.body.boardingPoint,
-      droppingPoint: req.body.droppingPoint,
-      couponCode: req.body.couponCode,
-      creditsToRedeem: req.body.creditsToRedeem,
-    });
+    const result = await createBooking(
+      {
+        userId,
+        scheduleId: req.body.scheduleId,
+        seatNumbers: req.body.seatNumbers,
+        boardingPoint: req.body.boardingPoint,
+        droppingPoint: req.body.droppingPoint,
+        couponCode: req.body.couponCode,
+        creditsToRedeem: req.body.creditsToRedeem,
+      },
+      auditContextFromRequest(req),
+    );
 
     res.status(201).json({
       success: true,
@@ -138,7 +142,11 @@ export async function cancelBookingController(
       });
     }
 
-    const result = await cancelBooking(Number(req.params.id), userId);
+    const result = await cancelBooking(
+      Number(req.params.id),
+      userId,
+      auditContextFromRequest(req),
+    );
 
     res.json({
       success: true,

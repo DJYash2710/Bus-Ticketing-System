@@ -1,6 +1,7 @@
 // src/features/auth/controller.ts
 import type { Request, Response, NextFunction } from "express";
 import { registerUser, loginUser, refreshTokens, logoutUser } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 function getClientMeta(req: Request) {
   return {
@@ -64,7 +65,11 @@ export async function logoutController(
 ) {
   try {
     const userId = req.user!.id;
-    const result = await logoutUser(userId, req.ip ?? "unknown");
+    const result = await logoutUser(
+      userId,
+      req.ip ?? "unknown",
+      auditContextFromRequest(req),
+    );
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

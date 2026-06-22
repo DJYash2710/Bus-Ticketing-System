@@ -1,12 +1,17 @@
 // src/features/auth/service.ts
 import bcrypt from "bcrypt";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken, } from "../../core/utils/jwt.js";
 import { env } from "../../config/env.js";
 import { UserRole } from "@prisma/client";
+import { logAuthEvent } from "./authLog.js";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLog, auditLogFrom } from "../../core/audit/auditLog.service.js";
+import { auditContextFromClient, } from "../../core/audit/requestContext.js";
 const SALT_ROUNDS = 10;
+const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 function buildTokenPayload(user) {
     const payload = {
         sub: user.id,
@@ -17,7 +22,22 @@ function buildTokenPayload(user) {
     }
     return payload;
 }
-export async function registerUser(input) {
+function refreshExpiresAt() {
+    return new Date(Date.now() + REFRESH_TTL_MS);
+}
+async function createRefreshTokenRow(userId, jti, userAgent, ipAddress, db = prisma) {
+    await db.refreshToken.create({
+        data: {
+            userId,
+            token: jti,
+            userAgent,
+            ipAddress,
+            isRevoked: false,
+            expiresAt: refreshExpiresAt(),
+        },
+    });
+}
+export async function registerUser(input, client) {
     const existing = await prisma.user.findFirst({
         where: { OR: [{ email: input.email }, { phone: input.phone || "" }] },
     });
@@ -25,10 +45,8 @@ export async function registerUser(input) {
         throw new ApiError(409, "User with this email or phone already exists");
     }
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-    // Generate user referral code (simple example)
     const referralCode = `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    return prisma.$transaction(async (tx) => {
-        // Handle referral: if referralCode provided, set referredBy and credit bonus
+    const result = await prisma.$transaction(async (tx) => {
         let referredById;
         if (input.referralCode) {
             const referrer = await tx.user.findFirst({
@@ -50,7 +68,6 @@ export async function registerUser(input) {
                 referredById: referredById ?? null,
             },
         });
-        // If they used a referral code, credit referral bonus
         if (referredById) {
             await tx.loyaltyEvent.create({
                 data: {
@@ -71,18 +88,9 @@ export async function registerUser(input) {
         }
         const payload = buildTokenPayload(user);
         const accessToken = signAccessToken(payload);
-        const refreshTokenJwt = signRefreshToken(payload);
-        // Also store refresh token record (simple version: store raw jwt; later you can hash/rotate)
-        await tx.refreshToken.create({
-            data: {
-                userId: user.id,
-                token: uuidv4(), // placeholder token identifier if you go for rotation later
-                userAgent: "unknown",
-                ipAddress: "unknown",
-                isRevoked: false,
-                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            },
-        });
+        const jti = randomUUID();
+        const refreshTokenJwt = signRefreshToken(payload, jti);
+        await createRefreshTokenRow(user.id, jti, client.userAgent, client.ipAddress, tx);
         return {
             user: {
                 id: user.id,
@@ -98,16 +106,58 @@ export async function registerUser(input) {
             },
         };
     });
+    logAuthEvent("info", "Registration successful", {
+        event: "register_success",
+        userId: result.user.id,
+        email: result.user.email,
+        ip: client.ipAddress,
+    });
+    auditLogFrom(auditContextFromClient(result.user.id, result.user.role, client), {
+        action: AuditAction.REGISTER,
+        entityType: AuditEntityType.USER,
+        entityId: result.user.id,
+        metadata: { email: result.user.email },
+    });
+    return result;
 }
-export async function loginUser(input) {
+export async function loginUser(input, client) {
     const user = await prisma.user.findUnique({
         where: { email: input.email },
     });
     if (!user) {
+        logAuthEvent("warn", "Login failed: invalid credentials", {
+            event: "login_failure",
+            email: input.email,
+            ip: client.ipAddress,
+        });
+        auditLog({
+            actorId: null,
+            actorRole: null,
+            ipAddress: client.ipAddress,
+            userAgent: client.userAgent,
+            action: AuditAction.LOGIN_FAILED,
+            entityType: AuditEntityType.USER,
+            metadata: { email: input.email },
+        });
         throw new ApiError(401, "Invalid credentials");
     }
     const isMatch = await bcrypt.compare(input.password, user.passwordHash);
     if (!isMatch) {
+        logAuthEvent("warn", "Login failed: invalid credentials", {
+            event: "login_failure",
+            email: input.email,
+            ip: client.ipAddress,
+        });
+        auditLog({
+            actorId: user.id,
+            actorRole: user.role,
+            ipAddress: client.ipAddress,
+            userAgent: client.userAgent,
+            action: AuditAction.LOGIN_FAILED,
+            entityType: AuditEntityType.USER,
+            entityId: user.id,
+            metadata: { email: input.email },
+        });
         throw new ApiError(401, "Invalid credentials");
     }
     if (!user.isActive) {
@@ -115,17 +165,20 @@ export async function loginUser(input) {
     }
     const payload = buildTokenPayload(user);
     const accessToken = signAccessToken(payload);
-    const refreshTokenJwt = signRefreshToken(payload);
-    // TODO: upsert/rotate refresh token record; keeping simple for now
-    await prisma.refreshToken.create({
-        data: {
-            userId: user.id,
-            token: uuidv4(),
-            userAgent: "unknown",
-            ipAddress: "unknown",
-            isRevoked: false,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
+    const jti = randomUUID();
+    const refreshTokenJwt = signRefreshToken(payload, jti);
+    await createRefreshTokenRow(user.id, jti, client.userAgent, client.ipAddress);
+    logAuthEvent("info", "Login successful", {
+        event: "login_success",
+        userId: user.id,
+        email: user.email,
+        ip: client.ipAddress,
+    });
+    auditLogFrom(auditContextFromClient(user.id, user.role, client), {
+        action: AuditAction.LOGIN_SUCCESS,
+        entityType: AuditEntityType.USER,
+        entityId: user.id,
+        metadata: { email: user.email },
     });
     return {
         user: {
@@ -142,32 +195,100 @@ export async function loginUser(input) {
         },
     };
 }
-export async function refreshTokens(refreshToken) {
+export async function refreshTokens(refreshToken, client) {
     let payload;
     try {
         payload = verifyRefreshToken(refreshToken);
     }
     catch {
+        logAuthEvent("warn", "Refresh failed: invalid or expired token", {
+            event: "refresh_failure",
+            ip: client.ipAddress,
+        });
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+    const jti = payload.jti;
+    if (!jti) {
+        logAuthEvent("warn", "Refresh failed: missing token id", {
+            event: "refresh_failure",
+            userId: payload.sub,
+            ip: client.ipAddress,
+        });
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+    const stored = await prisma.refreshToken.findUnique({
+        where: { token: jti },
+    });
+    if (!stored) {
+        logAuthEvent("warn", "Refresh failed: token not found in store", {
+            event: "refresh_failure",
+            userId: payload.sub,
+            ip: client.ipAddress,
+        });
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+    if (stored.isRevoked) {
+        await prisma.refreshToken.updateMany({
+            where: { userId: stored.userId, isRevoked: false },
+            data: { isRevoked: true },
+        });
+        logAuthEvent("warn", "Refresh token reuse detected; all sessions revoked", {
+            event: "refresh_reuse_detected",
+            userId: stored.userId,
+            ip: client.ipAddress,
+        });
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+    if (stored.expiresAt < new Date()) {
+        logAuthEvent("warn", "Refresh failed: token expired in store", {
+            event: "refresh_failure",
+            userId: stored.userId,
+            ip: client.ipAddress,
+        });
         throw new ApiError(401, "Invalid or expired refresh token");
     }
     const user = await prisma.user.findUnique({
         where: { id: payload.sub },
     });
     if (!user || !user.isActive) {
+        logAuthEvent("warn", "Refresh failed: user not found or inactive", {
+            event: "refresh_failure",
+            userId: payload.sub,
+            ip: client.ipAddress,
+        });
         throw new ApiError(401, "User not found or inactive");
     }
     const tokenPayload = buildTokenPayload(user);
     const accessToken = signAccessToken(tokenPayload);
-    const newRefreshToken = signRefreshToken(tokenPayload);
-    await prisma.refreshToken.create({
-        data: {
-            userId: user.id,
-            token: uuidv4(),
-            userAgent: "unknown",
-            ipAddress: "unknown",
-            isRevoked: false,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
+    const newJti = randomUUID();
+    const newRefreshToken = signRefreshToken(tokenPayload, newJti);
+    await prisma.$transaction([
+        prisma.refreshToken.update({
+            where: { id: stored.id },
+            data: { isRevoked: true },
+        }),
+        prisma.refreshToken.create({
+            data: {
+                userId: user.id,
+                token: newJti,
+                userAgent: client.userAgent,
+                ipAddress: client.ipAddress,
+                isRevoked: false,
+                expiresAt: refreshExpiresAt(),
+            },
+        }),
+    ]);
+    logAuthEvent("info", "Token refresh successful", {
+        event: "refresh_success",
+        userId: user.id,
+        email: user.email,
+        ip: client.ipAddress,
+    });
+    auditLogFrom(auditContextFromClient(user.id, user.role, client), {
+        action: AuditAction.REFRESH_TOKEN,
+        entityType: AuditEntityType.USER,
+        entityId: user.id,
+        metadata: { email: user.email },
     });
     return {
         user: {
@@ -184,10 +305,20 @@ export async function refreshTokens(refreshToken) {
         },
     };
 }
-export async function logoutUser(userId) {
+export async function logoutUser(userId, ip, audit) {
     await prisma.refreshToken.updateMany({
         where: { userId, isRevoked: false },
         data: { isRevoked: true },
+    });
+    logAuthEvent("info", "Logout successful", {
+        event: "logout",
+        userId,
+        ...(ip !== undefined ? { ip } : {}),
+    });
+    auditLogFrom(audit ?? { actorId: userId, ipAddress: ip ?? null }, {
+        action: AuditAction.LOGOUT,
+        entityType: AuditEntityType.USER,
+        entityId: userId,
     });
     return { message: "Logged out successfully" };
 }

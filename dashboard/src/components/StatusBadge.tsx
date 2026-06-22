@@ -29,6 +29,8 @@ export function bookingStatusVariant(status: string): BadgeVariant {
       return 'success'
     case 'PENDING':
       return 'warning'
+    case 'EXPIRED':
+      return 'neutral'
     case 'CANCELLED':
       return 'danger'
     default:
@@ -43,7 +45,7 @@ export function seatStatusLabel(status: string): string {
     case 'BOOKED':
       return 'Booked'
     case 'HELD':
-      return 'Out of Service'
+      return 'Held'
     default:
       return status
   }

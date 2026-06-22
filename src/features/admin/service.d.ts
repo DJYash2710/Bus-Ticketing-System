@@ -16,24 +16,6 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
             email: string;
             phone: string | null;
         };
-        seats: ({
-            seat: {
-                id: number;
-                status: import(".prisma/client").$Enums.SeatStatus;
-                scheduleId: number;
-                createdAt: Date;
-                updatedAt: Date;
-                seatNumber: string;
-                row: number | null;
-                col: number | null;
-                deck: string | null;
-            };
-        } & {
-            id: number;
-            createdAt: Date;
-            bookingId: number;
-            seatId: number;
-        })[];
         schedule: {
             route: {
                 fromCity: {
@@ -61,6 +43,7 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
                 durationMin: number | null;
                 createdAt: Date;
                 updatedAt: Date;
+                estimatedDurationMinutes: number | null;
             };
             bus: {
                 type: import(".prisma/client").$Enums.BusType;
@@ -74,16 +57,38 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
                 amenities: string | null;
             };
         } & {
+            color: string | null;
             id: number;
-            status: import(".prisma/client").$Enums.ScheduleStatus;
-            routeId: number;
-            busId: number;
-            departureTime: Date;
-            arrivalTime: Date | null;
             basePrice: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.ScheduleStatus;
+            departureTime: Date;
+            busId: number;
+            routeId: number;
             createdAt: Date;
             updatedAt: Date;
+            arrivalTime: Date | null;
+            recurrenceGroupId: string | null;
+            isRecurrenceException: boolean;
         };
+        seats: ({
+            seat: {
+                id: number;
+                status: import(".prisma/client").$Enums.SeatStatus;
+                scheduleId: number;
+                createdAt: Date;
+                updatedAt: Date;
+                seatNumber: string;
+                row: number | null;
+                col: number | null;
+                deck: string | null;
+                heldUntil: Date | null;
+            };
+        } & {
+            id: number;
+            createdAt: Date;
+            bookingId: number;
+            seatId: number;
+        })[];
         payment: {
             id: number;
             amount: Prisma.Decimal;
@@ -112,7 +117,10 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
         totalAmount: Prisma.Decimal;
         paymentStatus: import(".prisma/client").$Enums.PaymentStatus;
         bookedAt: Date;
+        holdExpiresAt: Date | null;
+        expiredAt: Date | null;
         cancelledAt: Date | null;
+        cancellationReason: string | null;
     })[];
     pagination: {
         page: number;
@@ -128,24 +136,6 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
         email: string;
         phone: string | null;
     };
-    seats: ({
-        seat: {
-            id: number;
-            status: import(".prisma/client").$Enums.SeatStatus;
-            scheduleId: number;
-            createdAt: Date;
-            updatedAt: Date;
-            seatNumber: string;
-            row: number | null;
-            col: number | null;
-            deck: string | null;
-        };
-    } & {
-        id: number;
-        createdAt: Date;
-        bookingId: number;
-        seatId: number;
-    })[];
     schedule: {
         route: {
             fromCity: {
@@ -173,6 +163,7 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
             durationMin: number | null;
             createdAt: Date;
             updatedAt: Date;
+            estimatedDurationMinutes: number | null;
         };
         bus: {
             type: import(".prisma/client").$Enums.BusType;
@@ -186,16 +177,38 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
             amenities: string | null;
         };
     } & {
+        color: string | null;
         id: number;
-        status: import(".prisma/client").$Enums.ScheduleStatus;
-        routeId: number;
-        busId: number;
-        departureTime: Date;
-        arrivalTime: Date | null;
         basePrice: Prisma.Decimal;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        departureTime: Date;
+        busId: number;
+        routeId: number;
         createdAt: Date;
         updatedAt: Date;
+        arrivalTime: Date | null;
+        recurrenceGroupId: string | null;
+        isRecurrenceException: boolean;
     };
+    seats: ({
+        seat: {
+            id: number;
+            status: import(".prisma/client").$Enums.SeatStatus;
+            scheduleId: number;
+            createdAt: Date;
+            updatedAt: Date;
+            seatNumber: string;
+            row: number | null;
+            col: number | null;
+            deck: string | null;
+            heldUntil: Date | null;
+        };
+    } & {
+        id: number;
+        createdAt: Date;
+        bookingId: number;
+        seatId: number;
+    })[];
     payment: {
         id: number;
         amount: Prisma.Decimal;
@@ -224,7 +237,10 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
     totalAmount: Prisma.Decimal;
     paymentStatus: import(".prisma/client").$Enums.PaymentStatus;
     bookedAt: Date;
+    holdExpiresAt: Date | null;
+    expiredAt: Date | null;
     cancelledAt: Date | null;
+    cancellationReason: string | null;
 }>;
 type ReportsSummaryInput = {
     fromDate?: string;

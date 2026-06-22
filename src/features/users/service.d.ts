@@ -10,8 +10,8 @@ export declare function getUserProfile(userId: number): Promise<{
     id: number;
     name: string;
     role: import(".prisma/client").$Enums.UserRole;
-    isActive: boolean;
     email: string;
+    isActive: boolean;
     phone: string | null;
     referralCode: string | null;
     creditsBalance: number;

@@ -7,8 +7,11 @@ import {
   listAdminBookings,
 } from "./service.js";
 import { readRecentLogs } from "./logs.service.js";
+import { getAuditLogById, listAuditLogs } from "./audit.service.js";
 import { logEmitter } from "../../config/logEmitter.js";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
+import { cancelScheduleCascade } from "../schedules/cancelCascade.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 type ValidatedQueryRequest = Request & {
   validatedQuery?: Record<string, unknown>;
@@ -118,4 +121,68 @@ export function streamLogsController(req: Request, res: Response) {
     clearInterval(heartbeat);
     logEmitter.off("log", onLog);
   });
+}
+
+export async function listAuditLogsController(
+  req: ValidatedQueryRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const query = req.validatedQuery ?? {};
+
+    const listInput: {
+      page: number;
+      limit: number;
+      action?: string;
+      actorId?: number;
+      entityType?: string;
+      fromDate?: string;
+      toDate?: string;
+    } = {
+      page: (query.page as number) ?? 1,
+      limit: (query.limit as number) ?? 20,
+    };
+
+    if (query.action) listInput.action = query.action as string;
+    if (query.actorId !== undefined) listInput.actorId = query.actorId as number;
+    if (query.entityType) listInput.entityType = query.entityType as string;
+    if (query.fromDate) listInput.fromDate = query.fromDate as string;
+    if (query.toDate) listInput.toDate = query.toDate as string;
+
+    const result = await listAuditLogs(listInput);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAuditLogByIdController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await getAuditLogById(Number(req.params.id));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function cancelScheduleController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await cancelScheduleCascade(
+      Number(req.params.id),
+      auditContextFromRequest(req),
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
 }

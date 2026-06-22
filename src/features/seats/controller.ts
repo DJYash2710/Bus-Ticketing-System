@@ -6,6 +6,7 @@ import {
   listSeatsBySchedule,
   updateSeatStatus,
 } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 export async function listSeatsByScheduleController(
   req: Request,
@@ -66,9 +67,14 @@ export async function updateSeatStatusController(
   try {
     const id = Number(req.params.id);
 
-    const seat = await updateSeatStatus(id, {
-      status: req.body.status as SeatStatus,
-    }, req.user as AuthUser);
+    const seat = await updateSeatStatus(
+      id,
+      {
+        status: req.body.status as SeatStatus,
+      },
+      req.user as AuthUser,
+      auditContextFromRequest(req),
+    );
 
     res.json({
       success: true,

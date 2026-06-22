@@ -8,6 +8,7 @@ import {
   updateBus,
   deleteBus,
 } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 function getCaller(req: Request): AuthUser {
   return req.user as AuthUser;
@@ -19,7 +20,7 @@ export async function createBusController(
   next: NextFunction,
 ) {
   try {
-    const bus = await createBus(req.body, getCaller(req));
+    const bus = await createBus(req.body, getCaller(req), auditContextFromRequest(req));
     res.status(201).json({ success: true, data: bus });
   } catch (err) {
     next(err);
@@ -60,7 +61,7 @@ export async function updateBusController(
 ) {
   try {
     const id = Number(req.params.id);
-    const bus = await updateBus(id, req.body, getCaller(req));
+    const bus = await updateBus(id, req.body, getCaller(req), auditContextFromRequest(req));
     res.json({ success: true, data: bus });
   } catch (err) {
     next(err);
@@ -74,7 +75,7 @@ export async function deleteBusController(
 ) {
   try {
     const id = Number(req.params.id);
-    const result = await deleteBus(id, getCaller(req));
+    const result = await deleteBus(id, getCaller(req), auditContextFromRequest(req));
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

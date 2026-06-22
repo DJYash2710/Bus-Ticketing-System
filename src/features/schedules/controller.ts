@@ -9,6 +9,7 @@ import {
   deleteSchedule,
   type ScheduleScope,
 } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 
 type ValidatedQueryRequest = Request & {
   validatedQuery?: Record<string, unknown>;
@@ -31,6 +32,7 @@ export async function createScheduleController(
         busId: Number(req.body.busId),
       },
       getCaller(req),
+      auditContextFromRequest(req),
     );
 
     res.status(201).json({ success: true, data: result });
@@ -92,7 +94,12 @@ export async function updateScheduleController(
 ) {
   try {
     const id = Number(req.params.id);
-    const result = await updateSchedule(id, req.body, getCaller(req));
+    const result = await updateSchedule(
+      id,
+      req.body,
+      getCaller(req),
+      auditContextFromRequest(req),
+    );
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

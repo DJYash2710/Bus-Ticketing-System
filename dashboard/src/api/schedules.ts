@@ -61,3 +61,20 @@ export async function deleteSchedule(id: number, scope: ScheduleScope = 'this') 
   const res = await apiClient.delete(`/schedules/${id}`, { params: { scope } })
   return unwrap<{ message: string; affectedCount: number }>(res)
 }
+
+export type CancelScheduleSummary = {
+  bookingsCancelled: number
+  seatsReleased: number
+  refundsProcessed: number
+  paymentsCancelled: number
+  seatsSwept: number
+}
+
+export async function cancelSchedule(id: number) {
+  const res = await apiClient.patch(`/admin/schedules/${id}/cancel`)
+  return unwrap<{
+    schedule: Schedule
+    alreadyCancelled: boolean
+    summary: CancelScheduleSummary
+  }>(res)
+}

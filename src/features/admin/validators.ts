@@ -35,3 +35,27 @@ export const logsQuerySchema = {
     lines: Joi.number().integer().min(1).max(500).default(100),
   }),
 };
+
+export const listAuditLogsSchema = {
+  query: Joi.object({
+    action: Joi.string().trim().max(100).optional(),
+    actorId: Joi.number().integer().positive().optional(),
+    entityType: Joi.string().trim().max(50).optional(),
+    fromDate: Joi.string().isoDate().optional(),
+    toDate: Joi.string().isoDate().optional(),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+  }),
+};
+
+export const auditLogIdParamSchema = {
+  params: Joi.object({
+    id: Joi.number().integer().positive().required(),
+  }),
+};
+
+export const scheduleIdParamSchema = {
+  params: Joi.object({
+    id: Joi.number().integer().positive().required(),
+  }),
+};

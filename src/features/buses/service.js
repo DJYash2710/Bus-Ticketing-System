@@ -2,6 +2,8 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import { isOperator, requireOperatorFleetId, } from "../../core/utils/operatorScope.js";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLogFrom } from "../../core/audit/auditLog.service.js";
 function assertBusOwnership(bus, caller) {
     if (!isOperator(caller)) {
         return;
@@ -11,7 +13,7 @@ function assertBusOwnership(bus, caller) {
         throw new ApiError(403, "You do not have permission to access this bus");
     }
 }
-export async function createBus(input, caller) {
+export async function createBus(input, caller, audit) {
     const existing = await prisma.bus.findUnique({
         where: { registrationNo: input.registrationNo },
     });
@@ -29,6 +31,16 @@ export async function createBus(input, caller) {
             type: input.type,
             amenities: input.amenities ? input.amenities.join(",") : null,
             operatorId,
+        },
+    });
+    auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
+        action: AuditAction.BUS_CREATED,
+        entityType: AuditEntityType.BUS,
+        entityId: bus.id,
+        metadata: {
+            registrationNo: bus.registrationNo,
+            name: bus.name,
+            capacity: bus.capacity,
         },
     });
     return {
@@ -62,7 +74,7 @@ export async function getBusById(id, caller) {
         amenities: bus.amenities ? bus.amenities.split(",") : [],
     };
 }
-export async function updateBus(id, input, caller) {
+export async function updateBus(id, input, caller, audit) {
     const bus = await prisma.bus.findUnique({ where: { id } });
     if (!bus) {
         throw new ApiError(404, "Bus not found");
@@ -85,18 +97,37 @@ export async function updateBus(id, input, caller) {
             operatorId,
         },
     });
+    auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
+        action: AuditAction.BUS_UPDATED,
+        entityType: AuditEntityType.BUS,
+        entityId: updated.id,
+        metadata: {
+            registrationNo: updated.registrationNo,
+            name: updated.name,
+            capacity: updated.capacity,
+        },
+    });
     return {
         ...updated,
         amenities: updated.amenities ? updated.amenities.split(",") : [],
     };
 }
-export async function deleteBus(id, caller) {
+export async function deleteBus(id, caller, audit) {
     const bus = await prisma.bus.findUnique({ where: { id } });
     if (!bus) {
         throw new ApiError(404, "Bus not found");
     }
     assertBusOwnership(bus, caller);
     await prisma.bus.delete({ where: { id } });
+    auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
+        action: AuditAction.BUS_DELETED,
+        entityType: AuditEntityType.BUS,
+        entityId: id,
+        metadata: {
+            registrationNo: bus.registrationNo,
+            name: bus.name,
+        },
+    });
     return { message: "Bus deleted successfully" };
 }
 //# sourceMappingURL=service.js.map

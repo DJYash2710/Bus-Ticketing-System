@@ -2,7 +2,11 @@ import { SeatStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import { isOperator, requireOperatorFleetId, } from "../../core/utils/operatorScope.js";
+import { expireStaleHolds } from "../bookings/holdExpiry.js";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLogFrom } from "../../core/audit/auditLog.service.js";
 export async function listSeatsBySchedule(filters) {
+    await expireStaleHolds();
     const schedule = await prisma.schedule.findUnique({
         where: { id: filters.scheduleId },
         include: {
@@ -80,7 +84,7 @@ export async function getSeatById(id) {
     }
     return seat;
 }
-export async function updateSeatStatus(id, input, caller) {
+export async function updateSeatStatus(id, input, caller, audit) {
     const seat = await prisma.seat.findUnique({
         where: { id },
         include: {
@@ -108,6 +112,9 @@ export async function updateSeatStatus(id, input, caller) {
         where: { id },
         data: {
             status: input.status,
+            ...(input.status === SeatStatus.HELD
+                ? {}
+                : { heldUntil: null }),
         },
         include: {
             schedule: {
@@ -121,6 +128,17 @@ export async function updateSeatStatus(id, input, caller) {
                     bus: true,
                 },
             },
+        },
+    });
+    auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
+        action: AuditAction.SEAT_STATUS_CHANGED,
+        entityType: AuditEntityType.SEAT,
+        entityId: id,
+        metadata: {
+            scheduleId: seat.scheduleId,
+            seatNumber: seat.seatNumber,
+            previousStatus: seat.status,
+            newStatus: input.status,
         },
     });
     return updatedSeat;

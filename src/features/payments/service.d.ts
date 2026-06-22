@@ -1,4 +1,5 @@
-export declare function initiatePayment(bookingId: number, userId: number): Promise<{
+import type { AuditContext } from "../../core/audit/requestContext.js";
+export declare function initiatePayment(bookingId: number, userId: number, audit?: AuditContext): Promise<{
     id: number;
     amount: import("@prisma/client/runtime/library").Decimal;
     status: import(".prisma/client").$Enums.PaymentStatus;
@@ -11,7 +12,7 @@ export declare function initiatePayment(bookingId: number, userId: number): Prom
     paidAt: Date | null;
     refundedAt: Date | null;
 }>;
-export declare function confirmPayment(paymentId: number, userId: number): Promise<{
+export declare function confirmPayment(paymentId: number, userId: number, audit?: AuditContext): Promise<{
     id: number;
     amount: import("@prisma/client/runtime/library").Decimal;
     status: import(".prisma/client").$Enums.PaymentStatus;

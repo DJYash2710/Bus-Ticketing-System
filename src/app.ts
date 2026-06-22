@@ -24,6 +24,10 @@ import { operatorRouter } from "./features/operators/routes.js";
 
 const app = express();
 
+if (env.trustProxy) {
+  app.set("trust proxy", 1);
+}
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json());

@@ -25,6 +25,9 @@ export function errorHandler(err, req, res, _next) {
     if (env.nodeEnv === 'development') {
         responseBody.stack = err.stack;
     }
+    if (err instanceof ApiError && err.details !== undefined) {
+        responseBody.details = err.details;
+    }
     res.status(statusCode).json(responseBody);
 }
 //# sourceMappingURL=error.middleware.js.map

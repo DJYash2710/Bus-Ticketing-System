@@ -1,5 +1,6 @@
 import type { AuthUser } from "../../core/middleware/auth.middleware.js";
 import type { BusType } from "@prisma/client";
+import type { AuditContext } from "../../core/audit/requestContext.js";
 type CreateBusInput = {
     registrationNo: string;
     name: string;
@@ -15,7 +16,7 @@ type UpdateBusInput = {
     amenities?: string[];
     operatorId?: number | null;
 };
-export declare function createBus(input: CreateBusInput, caller: AuthUser): Promise<{
+export declare function createBus(input: CreateBusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     amenities: string[];
     type: import(".prisma/client").$Enums.BusType;
     id: number;
@@ -48,7 +49,7 @@ export declare function getBusById(id: number, caller: AuthUser): Promise<{
     createdAt: Date;
     updatedAt: Date;
 }>;
-export declare function updateBus(id: number, input: UpdateBusInput, caller: AuthUser): Promise<{
+export declare function updateBus(id: number, input: UpdateBusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     amenities: string[];
     type: import(".prisma/client").$Enums.BusType;
     id: number;
@@ -59,7 +60,7 @@ export declare function updateBus(id: number, input: UpdateBusInput, caller: Aut
     createdAt: Date;
     updatedAt: Date;
 }>;
-export declare function deleteBus(id: number, caller: AuthUser): Promise<{
+export declare function deleteBus(id: number, caller: AuthUser, audit?: AuditContext): Promise<{
     message: string;
 }>;
 export {};

@@ -1,3 +1,8 @@
+import { type AuditContext } from "../../core/audit/requestContext.js";
+type ClientMeta = {
+    userAgent: string;
+    ipAddress: string;
+};
 type RegisterInput = {
     name: string;
     email: string;
@@ -9,7 +14,7 @@ type LoginInput = {
     email: string;
     password: string;
 };
-export declare function registerUser(input: RegisterInput): Promise<{
+export declare function registerUser(input: RegisterInput, client: ClientMeta): Promise<{
     user: {
         id: number;
         name: string;
@@ -23,7 +28,7 @@ export declare function registerUser(input: RegisterInput): Promise<{
         refreshToken: string;
     };
 }>;
-export declare function loginUser(input: LoginInput): Promise<{
+export declare function loginUser(input: LoginInput, client: ClientMeta): Promise<{
     user: {
         id: number;
         name: string;
@@ -37,7 +42,7 @@ export declare function loginUser(input: LoginInput): Promise<{
         refreshToken: string;
     };
 }>;
-export declare function refreshTokens(refreshToken: string): Promise<{
+export declare function refreshTokens(refreshToken: string, client: ClientMeta): Promise<{
     user: {
         id: number;
         name: string;
@@ -51,7 +56,7 @@ export declare function refreshTokens(refreshToken: string): Promise<{
         refreshToken: string;
     };
 }>;
-export declare function logoutUser(userId: number): Promise<{
+export declare function logoutUser(userId: number, ip?: string, audit?: AuditContext): Promise<{
     message: string;
 }>;
 export {};

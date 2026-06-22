@@ -1,6 +1,10 @@
 // src/config/env.ts
 import dotenv from 'dotenv';
 dotenv.config();
+function readPositiveInt(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 export const env = {
     nodeEnv: process.env.NODE_ENV || 'development',
     port: process.env.PORT || '4000',
@@ -12,5 +16,17 @@ export const env = {
     loyaltyPointValue: Number(process.env.LOYALTY_POINT_VALUE || '0.1'),
     platformCommissionRate: Number(process.env.PLATFORM_COMMISSION_RATE || '0.05'),
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+    trustProxy: process.env.TRUST_PROXY === 'true',
+    rateLimit: {
+        enabled: process.env.RATE_LIMIT_ENABLED !== 'false',
+        strict: {
+            windowMs: readPositiveInt(process.env.RATE_LIMIT_STRICT_WINDOW_MS, 15 * 60 * 1000),
+            max: readPositiveInt(process.env.RATE_LIMIT_STRICT_MAX, 10),
+        },
+        moderate: {
+            windowMs: readPositiveInt(process.env.RATE_LIMIT_MODERATE_WINDOW_MS, 60 * 1000),
+            max: readPositiveInt(process.env.RATE_LIMIT_MODERATE_MAX, 60),
+        },
+    },
 };
 //# sourceMappingURL=env.js.map

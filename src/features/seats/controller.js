@@ -1,5 +1,6 @@
 import { SeatStatus } from "@prisma/client";
 import { getSeatById, listSeatsBySchedule, updateSeatStatus, } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 export async function listSeatsByScheduleController(req, res, next) {
     try {
         const scheduleId = Number(req.params.scheduleId);
@@ -38,7 +39,7 @@ export async function updateSeatStatusController(req, res, next) {
         const id = Number(req.params.id);
         const seat = await updateSeatStatus(id, {
             status: req.body.status,
-        }, req.user);
+        }, req.user, auditContextFromRequest(req));
         res.json({
             success: true,
             data: seat,

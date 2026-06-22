@@ -1,10 +1,11 @@
 import { createBus, listBuses, getBusById, updateBus, deleteBus, } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 function getCaller(req) {
     return req.user;
 }
 export async function createBusController(req, res, next) {
     try {
-        const bus = await createBus(req.body, getCaller(req));
+        const bus = await createBus(req.body, getCaller(req), auditContextFromRequest(req));
         res.status(201).json({ success: true, data: bus });
     }
     catch (err) {
@@ -33,7 +34,7 @@ export async function getBusByIdController(req, res, next) {
 export async function updateBusController(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const bus = await updateBus(id, req.body, getCaller(req));
+        const bus = await updateBus(id, req.body, getCaller(req), auditContextFromRequest(req));
         res.json({ success: true, data: bus });
     }
     catch (err) {
@@ -43,7 +44,7 @@ export async function updateBusController(req, res, next) {
 export async function deleteBusController(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const result = await deleteBus(id, getCaller(req));
+        const result = await deleteBus(id, getCaller(req), auditContextFromRequest(req));
         res.json({ success: true, data: result });
     }
     catch (err) {

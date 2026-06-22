@@ -2,6 +2,9 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import { Prisma } from "@prisma/client";
+import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
+import { auditLogFrom } from "../../core/audit/auditLog.service.js";
+import type { AuditContext } from "../../core/audit/requestContext.js";
 
 type CreateRouteInput = {
   code: string;
@@ -16,7 +19,10 @@ type UpdateRouteInput = {
   durationMin?: number;
 };
 
-export async function createRoute(input: CreateRouteInput) {
+export async function createRoute(
+  input: CreateRouteInput,
+  audit?: AuditContext,
+) {
   if (input.fromCityId === input.toCityId) {
     throw new ApiError(400, "fromCityId and toCityId cannot be the same");
   }
@@ -42,7 +48,7 @@ export async function createRoute(input: CreateRouteInput) {
     throw new ApiError(409, "Route between these cities already exists");
   }
 
-  return prisma.route.create({
+  const route = await prisma.route.create({
     data: {
       code: input.code,
       fromCityId: input.fromCityId,
@@ -56,6 +62,19 @@ export async function createRoute(input: CreateRouteInput) {
       toCity: true,
     },
   });
+
+  auditLogFrom(audit ?? {}, {
+    action: AuditAction.ROUTE_CREATED,
+    entityType: AuditEntityType.ROUTE,
+    entityId: route.id,
+    metadata: {
+      code: route.code,
+      fromCityId: route.fromCityId,
+      toCityId: route.toCityId,
+    },
+  });
+
+  return route;
 }
 
 export async function listRoutes(fromCityId?: number, toCityId?: number) {
@@ -89,7 +108,11 @@ export async function getRouteById(id: number) {
   return route;
 }
 
-export async function updateRoute(id: number, input: UpdateRouteInput) {
+export async function updateRoute(
+  id: number,
+  input: UpdateRouteInput,
+  audit?: AuditContext,
+) {
   const route = await prisma.route.findUnique({ where: { id } });
   if (!route) {
     throw new ApiError(404, "Route not found");
@@ -98,7 +121,7 @@ export async function updateRoute(id: number, input: UpdateRouteInput) {
   const nextDurationMin =
     input.durationMin !== undefined ? input.durationMin : route.durationMin;
 
-  return prisma.route.update({
+  const updated = await prisma.route.update({
     where: { id },
     data: {
       distanceKm: input.distanceKm ?? route.distanceKm,
@@ -110,16 +133,35 @@ export async function updateRoute(id: number, input: UpdateRouteInput) {
     },
     include: { fromCity: true, toCity: true },
   });
+
+  auditLogFrom(audit ?? {}, {
+    action: AuditAction.ROUTE_UPDATED,
+    entityType: AuditEntityType.ROUTE,
+    entityId: updated.id,
+    metadata: {
+      code: updated.code,
+      distanceKm: updated.distanceKm,
+      durationMin: updated.durationMin,
+    },
+  });
+
+  return updated;
 }
 
-export async function deleteRoute(id: number) {
+export async function deleteRoute(id: number, audit?: AuditContext) {
   const route = await prisma.route.findUnique({ where: { id } });
   if (!route) {
     throw new ApiError(404, "Route not found");
   }
 
-  // Later maybe prevent delete if schedules exist
   await prisma.route.delete({ where: { id } });
+
+  auditLogFrom(audit ?? {}, {
+    action: AuditAction.ROUTE_DELETED,
+    entityType: AuditEntityType.ROUTE,
+    entityId: id,
+    metadata: { code: route.code },
+  });
 
   return { message: "Route deleted successfully" };
 }

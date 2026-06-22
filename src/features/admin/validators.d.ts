@@ -11,4 +11,13 @@ export declare const reportsSummarySchema: {
 export declare const logsQuerySchema: {
     query: Joi.ObjectSchema<any>;
 };
+export declare const listAuditLogsSchema: {
+    query: Joi.ObjectSchema<any>;
+};
+export declare const auditLogIdParamSchema: {
+    params: Joi.ObjectSchema<any>;
+};
+export declare const scheduleIdParamSchema: {
+    params: Joi.ObjectSchema<any>;
+};
 //# sourceMappingURL=validators.d.ts.map

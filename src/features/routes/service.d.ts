@@ -1,3 +1,4 @@
+import type { AuditContext } from "../../core/audit/requestContext.js";
 type CreateRouteInput = {
     code: string;
     fromCityId: number;
@@ -9,7 +10,7 @@ type UpdateRouteInput = {
     distanceKm?: number;
     durationMin?: number;
 };
-export declare function createRoute(input: CreateRouteInput): Promise<{
+export declare function createRoute(input: CreateRouteInput, audit?: AuditContext): Promise<{
     fromCity: {
         state: string | null;
         id: number;
@@ -35,6 +36,7 @@ export declare function createRoute(input: CreateRouteInput): Promise<{
     durationMin: number | null;
     createdAt: Date;
     updatedAt: Date;
+    estimatedDurationMinutes: number | null;
 }>;
 export declare function listRoutes(fromCityId?: number, toCityId?: number): Promise<({
     fromCity: {
@@ -62,6 +64,7 @@ export declare function listRoutes(fromCityId?: number, toCityId?: number): Prom
     durationMin: number | null;
     createdAt: Date;
     updatedAt: Date;
+    estimatedDurationMinutes: number | null;
 })[]>;
 export declare function getRouteById(id: number): Promise<{
     fromCity: {
@@ -89,8 +92,9 @@ export declare function getRouteById(id: number): Promise<{
     durationMin: number | null;
     createdAt: Date;
     updatedAt: Date;
+    estimatedDurationMinutes: number | null;
 }>;
-export declare function updateRoute(id: number, input: UpdateRouteInput): Promise<{
+export declare function updateRoute(id: number, input: UpdateRouteInput, audit?: AuditContext): Promise<{
     fromCity: {
         state: string | null;
         id: number;
@@ -116,8 +120,9 @@ export declare function updateRoute(id: number, input: UpdateRouteInput): Promis
     durationMin: number | null;
     createdAt: Date;
     updatedAt: Date;
+    estimatedDurationMinutes: number | null;
 }>;
-export declare function deleteRoute(id: number): Promise<{
+export declare function deleteRoute(id: number, audit?: AuditContext): Promise<{
     message: string;
 }>;
 export {};

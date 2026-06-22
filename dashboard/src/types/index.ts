@@ -11,9 +11,15 @@ export type ScheduleStatus = 'ACTIVE' | 'CANCELLED' | 'COMPLETED'
 
 export type SeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED'
 
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED'
 
-export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED'
+export type PaymentStatus =
+  | 'PENDING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'REFUND_PENDING'
+  | 'CANCELLED'
 
 export type CouponType = 'PERCENT' | 'FIXED'
 
@@ -198,6 +204,7 @@ export interface Booking {
   paymentStatus: PaymentStatus
   bookedAt: string
   cancelledAt: string | null
+  cancellationReason?: string | null
   schedule?: Schedule
   user?: {
     id: number
@@ -259,6 +266,29 @@ export interface LogsResponse {
   linesReturned: number
   logs: LogEntry[]
   message?: string
+}
+
+export interface AuditLogEntry {
+  id: number
+  actorId: number | null
+  actorRole: string | null
+  action: string
+  entityType: string
+  entityId: number | null
+  metadata: Record<string, unknown> | null
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: string
+}
+
+export interface AuditLogsResponse {
+  logs: AuditLogEntry[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 export interface CreateOperatorResponse {

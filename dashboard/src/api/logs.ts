@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from './client'
-import type { LogsResponse, ReportsSummary } from '../types'
+import type { AuditLogsResponse, LogsResponse, ReportsSummary } from '../types'
 
 export async function getReportsSummary(params?: {
   fromDate?: string
@@ -12,4 +12,17 @@ export async function getReportsSummary(params?: {
 export async function getLogs(lines = 100) {
   const res = await apiClient.get('/admin/logs', { params: { lines } })
   return unwrap<LogsResponse>(res)
+}
+
+export async function getAuditLogs(params?: {
+  page?: number
+  limit?: number
+  action?: string
+  actorId?: number
+  entityType?: string
+  fromDate?: string
+  toDate?: string
+}) {
+  const res = await apiClient.get('/admin/audit-logs', { params })
+  return unwrap<AuditLogsResponse>(res)
 }

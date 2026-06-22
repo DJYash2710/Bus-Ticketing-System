@@ -1,11 +1,12 @@
 import { createRoute, deleteRoute, getRouteById, listRoutes, updateRoute, } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 export async function createRouteController(req, res, next) {
     try {
         const route = await createRoute({
             ...req.body,
             fromCityId: Number(req.body.fromCityId),
             toCityId: Number(req.body.toCityId),
-        });
+        }, auditContextFromRequest(req));
         res.status(201).json({ success: true, data: route });
     }
     catch (err) {
@@ -40,7 +41,7 @@ export async function getRouteByIdController(req, res, next) {
 export async function updateRouteController(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const route = await updateRoute(id, req.body);
+        const route = await updateRoute(id, req.body, auditContextFromRequest(req));
         res.json({ success: true, data: route });
     }
     catch (err) {
@@ -50,7 +51,7 @@ export async function updateRouteController(req, res, next) {
 export async function deleteRouteController(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const result = await deleteRoute(id);
+        const result = await deleteRoute(id, auditContextFromRequest(req));
         res.json({ success: true, data: result });
     }
     catch (err) {

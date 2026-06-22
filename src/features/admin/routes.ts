@@ -4,17 +4,23 @@ import { requireRole } from "../../core/middleware/role.middleware.js";
 import { validate } from "../../core/middleware/validate.middleware.js";
 import {
   getAdminBookingByIdController,
+  getAuditLogByIdController,
   getLogsController,
   getReportsSummaryController,
   listAdminBookingsController,
+  listAuditLogsController,
   streamLogsController,
+  cancelScheduleController,
 } from "./controller.js";
 import { adminSseAuthMiddleware } from "./sseAuth.middleware.js";
 import {
+  auditLogIdParamSchema,
   bookingIdParamSchema,
   listAdminBookingsSchema,
+  listAuditLogsSchema,
   logsQuerySchema,
   reportsSummarySchema,
+  scheduleIdParamSchema,
 } from "./validators.js";
 
 const router = Router();
@@ -55,6 +61,27 @@ router.get(
   requireRole(["ADMIN"]),
   validate(logsQuerySchema),
   getLogsController,
+);
+
+router.get(
+  "/audit-logs",
+  requireRole(["ADMIN"]),
+  validate(listAuditLogsSchema),
+  listAuditLogsController,
+);
+
+router.get(
+  "/audit-logs/:id",
+  requireRole(["ADMIN"]),
+  validate(auditLogIdParamSchema),
+  getAuditLogByIdController,
+);
+
+router.patch(
+  "/schedules/:id/cancel",
+  requireRole(["ADMIN"]),
+  validate(scheduleIdParamSchema),
+  cancelScheduleController,
 );
 
 export const adminRouter = router;

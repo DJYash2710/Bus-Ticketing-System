@@ -1,5 +1,6 @@
 import { requireOperatorFleetId } from "../../core/utils/operatorScope.js";
 import { cancelBooking, createBooking, getBookingById, getMyBookings, getOperatorBookings, } from "./service.js";
+import { auditContextFromRequest } from "../../core/audit/requestContext.js";
 export async function createBookingController(req, res, next) {
     try {
         const userId = req.user?.id;
@@ -17,7 +18,7 @@ export async function createBookingController(req, res, next) {
             droppingPoint: req.body.droppingPoint,
             couponCode: req.body.couponCode,
             creditsToRedeem: req.body.creditsToRedeem,
-        });
+        }, auditContextFromRequest(req));
         res.status(201).json({
             success: true,
             data: result,
@@ -88,7 +89,7 @@ export async function cancelBookingController(req, res, next) {
                 message: "Unauthorized",
             });
         }
-        const result = await cancelBooking(Number(req.params.id), userId);
+        const result = await cancelBooking(Number(req.params.id), userId, auditContextFromRequest(req));
         res.json({
             success: true,
             data: result,

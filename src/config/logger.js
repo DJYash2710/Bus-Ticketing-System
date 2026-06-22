@@ -1,6 +1,7 @@
 // src/config/logger.ts
 import { createLogger, format, transports } from 'winston';
 import path from 'path';
+import { EmitterTransport } from './emitterTransport.js';
 export const logger = createLogger({
     level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     format: format.combine(format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), format.json()),
@@ -11,6 +12,7 @@ export const logger = createLogger({
             maxsize: 5 * 1024 * 1024, // 5MB
             maxFiles: 5,
         }),
+        new EmitterTransport(),
     ],
 });
 //# sourceMappingURL=logger.js.map

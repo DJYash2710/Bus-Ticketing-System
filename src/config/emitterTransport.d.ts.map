@@ -1,0 +1,1 @@
+{"version":3,"file":"emitterTransport.d.ts","sourceRoot":"","sources":["emitterTransport.ts"],"names":[],"mappings":"AAAA,OAAO,SAAS,MAAM,mBAAmB,CAAC;AAG1C,qBAAa,gBAAiB,SAAQ,SAAS;IAC7C,GAAG,CAAC,IAAI,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,EAAE,QAAQ,EAAE,MAAM,IAAI;CAOxD"}

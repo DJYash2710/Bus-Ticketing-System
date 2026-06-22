@@ -6,8 +6,8 @@ export function signAccessToken(payload) {
         expiresIn: "15m",
     });
 }
-export function signRefreshToken(payload) {
-    return jwt.sign(payload, env.jwtRefreshSecret, {
+export function signRefreshToken(payload, jti) {
+    return jwt.sign({ ...payload, jti }, env.jwtRefreshSecret, {
         expiresIn: "30d",
     });
 }
