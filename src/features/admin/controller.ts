@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import type { AuthUser } from "../../core/middleware/auth.middleware.js";
+import { requireOperatorFleetId } from "../../core/utils/operatorScope.js";
 import {
   getAdminBookingById,
   getReportsSummary,
@@ -55,11 +57,24 @@ export async function getReportsSummaryController(
 ) {
   try {
     const query = req.validatedQuery ?? {};
+    const caller = req.user as AuthUser;
 
-    const result = await getReportsSummary({
-      fromDate: query.fromDate as string | undefined,
-      toDate: query.toDate as string | undefined,
-    });
+    const busOperatorId =
+      caller.role === "OPERATOR"
+        ? requireOperatorFleetId(caller)
+        : undefined;
+
+    const input: {
+      fromDate?: string;
+      toDate?: string;
+      busOperatorId?: number;
+    } = {};
+
+    if (query.fromDate) input.fromDate = query.fromDate as string;
+    if (query.toDate) input.toDate = query.toDate as string;
+    if (busOperatorId !== undefined) input.busOperatorId = busOperatorId;
+
+    const result = await getReportsSummary(input);
 
     res.json({ success: true, data: result });
   } catch (err) {

@@ -13,6 +13,27 @@ import { UserRole } from "@prisma/client";
 
 const SALT_ROUNDS = 10;
 
+function buildTokenPayload(user: {
+  id: number;
+  role: UserRole;
+  busOperatorId: number | null;
+}) {
+  const payload: {
+    sub: number;
+    role: UserRole;
+    busOperatorId?: number | null;
+  } = {
+    sub: user.id,
+    role: user.role,
+  };
+
+  if (user.role === UserRole.OPERATOR) {
+    payload.busOperatorId = user.busOperatorId;
+  }
+
+  return payload;
+}
+
 type RegisterInput = {
   name: string;
   email: string;
@@ -89,7 +110,7 @@ export async function registerUser(input: RegisterInput) {
       });
     }
 
-    const payload = { sub: user.id, role: user.role };
+    const payload = buildTokenPayload(user);
     const accessToken = signAccessToken(payload);
     const refreshTokenJwt = signRefreshToken(payload);
 
@@ -140,7 +161,7 @@ export async function loginUser(input: LoginInput) {
     throw new ApiError(403, "Account is disabled");
   }
 
-  const payload = { sub: user.id, role: user.role };
+  const payload = buildTokenPayload(user);
   const accessToken = signAccessToken(payload);
   const refreshTokenJwt = signRefreshToken(payload);
 
@@ -188,7 +209,7 @@ export async function refreshTokens(refreshToken: string) {
     throw new ApiError(401, "User not found or inactive");
   }
 
-  const tokenPayload = { sub: user.id, role: user.role };
+  const tokenPayload = buildTokenPayload(user);
   const accessToken = signAccessToken(tokenPayload);
   const newRefreshToken = signRefreshToken(tokenPayload);
 

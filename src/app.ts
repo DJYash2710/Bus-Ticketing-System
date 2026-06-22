@@ -20,6 +20,7 @@ import { adminRouter } from "./features/admin/routes.js";
 import { couponRouter } from "./features/coupons/routes.js";
 import { loyaltyRouter } from "./features/loyalty/routes.js";
 import { userRouter } from "./features/users/routes.js";
+import { operatorRouter } from "./features/operators/routes.js";
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/coupons", couponRouter);
 app.use("/api/v1/loyalty", loyaltyRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/operators", operatorRouter);
 // 404 + error handlers
 app.use(notFoundHandler);
 app.use(errorHandler);

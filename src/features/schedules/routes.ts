@@ -8,19 +8,35 @@ import {
   updateScheduleController,
 } from "./controller.js";
 import { validate } from "../../core/middleware/validate.middleware.js";
-import { createScheduleSchema, updateScheduleSchema } from "./validators.js";
+import {
+  createScheduleSchema,
+  deleteScheduleSchema,
+  listSchedulesSchema,
+  scheduleIdParamSchema,
+  updateScheduleSchema,
+} from "./validators.js";
 import { authMiddleware } from "../../core/middleware/auth.middleware.js";
 import { requireRole } from "../../core/middleware/role.middleware.js";
 
 const router = Router();
 
-router.get("/", authMiddleware, listSchedulesController);
-router.get("/:id", authMiddleware, getScheduleByIdController);
+router.get(
+  "/",
+  authMiddleware,
+  validate(listSchedulesSchema),
+  listSchedulesController,
+);
+router.get(
+  "/:id",
+  authMiddleware,
+  validate(scheduleIdParamSchema),
+  getScheduleByIdController,
+);
 
 router.post(
   "/",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
   validate(createScheduleSchema),
   createScheduleController,
 );
@@ -28,15 +44,19 @@ router.post(
 router.patch(
   "/:id",
   authMiddleware,
-  requireRole(["ADMIN"]),
-  validate(updateScheduleSchema),
+  requireRole(["ADMIN", "OPERATOR"]),
+  validate({ ...updateScheduleSchema, params: scheduleIdParamSchema.params }),
   updateScheduleController,
 );
 
 router.delete(
   "/:id",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
+  validate({
+    params: scheduleIdParamSchema.params,
+    query: deleteScheduleSchema.query,
+  }),
   deleteScheduleController,
 );
 

@@ -1,8 +1,19 @@
-import { Coupon, CouponType } from "@prisma/client";
+import { CouponType } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { ApiError } from "./apiError.js";
 
-export function calculateCouponDiscount(coupon: Coupon, baseAmount: number) {
+type CouponLike = {
+  type: CouponType;
+  value: { toString(): string } | number;
+  isActive: boolean;
+  validFrom: Date | null;
+  validTo: Date | null;
+  maxGlobalUses: number | null;
+  usedCount: number;
+  maxUsesPerUser: number | null;
+};
+
+export function calculateCouponDiscount(coupon: CouponLike, baseAmount: number) {
   if (coupon.type === CouponType.PERCENT) {
     return Math.min(baseAmount, Math.round((baseAmount * Number(coupon.value)) / 100));
   }
@@ -19,8 +30,8 @@ export function calculateLoyaltyCreditsEarned(baseAmount: number) {
 }
 
 export async function assertCouponUsable(
-  coupon: Coupon,
-  userId: number,
+  coupon: CouponLike,
+  _userId: number,
   userRedemptionCount: number,
 ) {
   const now = new Date();

@@ -38,5 +38,9 @@ export function errorHandler(
     responseBody.stack = err.stack;
   }
 
+  if (err instanceof ApiError && err.details !== undefined) {
+    responseBody.details = err.details;
+  }
+
   res.status(statusCode).json(responseBody);
 }

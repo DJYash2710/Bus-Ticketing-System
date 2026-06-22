@@ -25,7 +25,7 @@ router.get("/:id", authMiddleware, getSeatByIdController);
 router.patch(
   "/:id/status",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
   validate(updateSeatStatusSchema),
   updateSeatStatusController,
 );

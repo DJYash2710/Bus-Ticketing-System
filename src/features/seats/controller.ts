@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { SeatStatus } from "@prisma/client";
+import type { AuthUser } from "../../core/middleware/auth.middleware.js";
 import {
   getSeatById,
   listSeatsBySchedule,
@@ -67,7 +68,7 @@ export async function updateSeatStatusController(
 
     const seat = await updateSeatStatus(id, {
       status: req.body.status as SeatStatus,
-    });
+    }, req.user as AuthUser);
 
     res.json({
       success: true,

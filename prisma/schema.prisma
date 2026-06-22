@@ -78,6 +78,9 @@ model User {
 
   creditsBalance Int @default(0)
 
+  busOperatorId Int?
+  managedOperator BusOperator? @relation(fields: [busOperatorId], references: [id])
+
   bookings          Booking[]
   refreshTokens     RefreshToken[]
   loyaltyEvents     LoyaltyEvent[]
@@ -116,6 +119,7 @@ model BusOperator {
   contactPhone String?
 
   buses Bus[]
+  users User[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,12 +143,13 @@ model City {
 }
 
 model Route {
-  id          Int    @id @default(autoincrement())
-  code        String @unique
-  fromCityId  Int
-  toCityId    Int
-  distanceKm  Int?
-  durationMin Int?
+  id                       Int    @id @default(autoincrement())
+  code                     String @unique
+  fromCityId               Int
+  toCityId                 Int
+  distanceKm               Int?
+  durationMin              Int?
+  estimatedDurationMinutes Int?
 
   fromCity  City       @relation("RouteFromCity", fields: [fromCityId], references: [id])
   toCity    City       @relation("RouteToCity", fields: [toCityId], references: [id])
@@ -177,13 +182,16 @@ model Bus {
 // ─── Schedule ────────────────────────────────────────────────────────────────
 
 model Schedule {
-  id            Int            @id @default(autoincrement())
-  routeId       Int
-  busId         Int
-  departureTime DateTime
-  arrivalTime   DateTime?
-  basePrice     Decimal        @db.Decimal(10, 2)
-  status        ScheduleStatus @default(ACTIVE)
+  id                     Int            @id @default(autoincrement())
+  routeId                Int
+  busId                  Int
+  departureTime          DateTime
+  arrivalTime            DateTime?
+  basePrice              Decimal        @db.Decimal(10, 2)
+  status                 ScheduleStatus @default(ACTIVE)
+  color                  String?        @default("#4F46E5")
+  recurrenceGroupId      String?
+  isRecurrenceException  Boolean        @default(false)
 
   route    Route     @relation(fields: [routeId], references: [id])
   bus      Bus       @relation(fields: [busId], references: [id])
@@ -195,6 +203,7 @@ model Schedule {
 
   @@index([routeId, departureTime])
   @@index([busId, departureTime])
+  @@index([recurrenceGroupId])
 }
 
 // ─── Seats ───────────────────────────────────────────────────────────────────

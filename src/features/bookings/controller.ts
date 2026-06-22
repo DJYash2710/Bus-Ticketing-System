@@ -1,9 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
+import type { AuthUser } from "../../core/middleware/auth.middleware.js";
+import { requireOperatorFleetId } from "../../core/utils/operatorScope.js";
 import {
   cancelBooking,
   createBooking,
   getBookingById,
   getMyBookings,
+  getOperatorBookings,
 } from "./service.js";
 
 type AuthRequest = Request & {
@@ -91,6 +94,25 @@ export async function getMyBookingsController(
     }
 
     const result = await getMyBookings(userId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getOperatorBookingsController(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const caller = req.user as AuthUser;
+    const fleetId = requireOperatorFleetId(caller);
+    const result = await getOperatorBookings(fleetId);
 
     res.json({
       success: true,

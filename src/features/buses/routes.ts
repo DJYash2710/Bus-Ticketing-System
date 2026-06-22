@@ -18,11 +18,11 @@ const router = Router();
 router.get("/", authMiddleware, listBusesController);
 router.get("/:id", authMiddleware, getBusByIdController);
 
-// Admin-only modifications
+// Admin and operator modifications
 router.post(
   "/",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
   validate(createBusSchema),
   createBusController,
 );
@@ -30,7 +30,7 @@ router.post(
 router.patch(
   "/:id",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
   validate(updateBusSchema),
   updateBusController,
 );
@@ -38,7 +38,7 @@ router.patch(
 router.delete(
   "/:id",
   authMiddleware,
-  requireRole(["ADMIN"]),
+  requireRole(["ADMIN", "OPERATOR"]),
   deleteBusController,
 );
 

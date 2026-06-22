@@ -1,12 +1,22 @@
 // src/features/schedules/controller.ts
 import type { Request, Response, NextFunction } from "express";
+import type { AuthUser } from "../../core/middleware/auth.middleware.js";
 import {
   createSchedule,
   listSchedules,
   getScheduleById,
   updateSchedule,
   deleteSchedule,
+  type ScheduleScope,
 } from "./service.js";
+
+type ValidatedQueryRequest = Request & {
+  validatedQuery?: Record<string, unknown>;
+};
+
+function getCaller(req: Request): AuthUser {
+  return req.user as AuthUser;
+}
 
 export async function createScheduleController(
   req: Request,
@@ -14,52 +24,46 @@ export async function createScheduleController(
   next: NextFunction,
 ) {
   try {
-    const schedule = await createSchedule({
-      ...req.body,
-      routeId: Number(req.body.routeId),
-      busId: Number(req.body.busId),
-    });
+    const result = await createSchedule(
+      {
+        ...req.body,
+        routeId: Number(req.body.routeId),
+        busId: Number(req.body.busId),
+      },
+      getCaller(req),
+    );
 
-    res.status(201).json({ success: true, data: schedule });
+    res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
 }
 
 export async function listSchedulesController(
-  req: Request,
+  req: ValidatedQueryRequest,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    const routeId =
-      typeof req.query.routeId === "string"
-        ? Number(req.query.routeId)
-        : undefined;
+    const query = req.validatedQuery ?? req.query;
 
-    const busId =
-      typeof req.query.busId === "string" ? Number(req.query.busId) : undefined;
-
-    const status =
-      typeof req.query.status === "string"
-        ? (req.query.status as any)
-        : undefined;
-
-    const date =
-      typeof req.query.date === "string" ? req.query.date : undefined;
     const filters: {
       routeId?: number;
       busId?: number;
       status?: any;
       date?: string;
+      from?: string;
+      to?: string;
     } = {};
 
-    if (routeId !== undefined) filters.routeId = routeId;
-    if (busId !== undefined) filters.busId = busId;
-    if (status !== undefined) filters.status = status;
-    if (date !== undefined) filters.date = date;
+    if (query.routeId !== undefined) filters.routeId = Number(query.routeId);
+    if (query.busId !== undefined) filters.busId = Number(query.busId);
+    if (query.status !== undefined) filters.status = query.status;
+    if (query.date !== undefined) filters.date = String(query.date);
+    if (query.from !== undefined) filters.from = String(query.from);
+    if (query.to !== undefined) filters.to = String(query.to);
 
-    const schedules = await listSchedules(filters);
+    const schedules = await listSchedules(filters, getCaller(req));
 
     res.json({ success: true, data: schedules });
   } catch (err) {
@@ -74,7 +78,7 @@ export async function getScheduleByIdController(
 ) {
   try {
     const id = Number(req.params.id);
-    const schedule = await getScheduleById(id);
+    const schedule = await getScheduleById(id, getCaller(req));
     res.json({ success: true, data: schedule });
   } catch (err) {
     next(err);
@@ -88,21 +92,23 @@ export async function updateScheduleController(
 ) {
   try {
     const id = Number(req.params.id);
-    const schedule = await updateSchedule(id, req.body);
-    res.json({ success: true, data: schedule });
+    const result = await updateSchedule(id, req.body, getCaller(req));
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
 }
 
 export async function deleteScheduleController(
-  req: Request,
+  req: ValidatedQueryRequest,
   res: Response,
   next: NextFunction,
 ) {
   try {
     const id = Number(req.params.id);
-    const result = await deleteSchedule(id);
+    const query = req.validatedQuery ?? req.query;
+    const scope = (query.scope as ScheduleScope | undefined) ?? "this";
+    const result = await deleteSchedule(id, getCaller(req), scope);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

@@ -453,3 +453,44 @@ export async function cancelBooking(bookingId: number, userId: number) {
 
   return result;
 }
+
+export async function getOperatorBookings(busOperatorId: number) {
+  return prisma.booking.findMany({
+    where: {
+      schedule: {
+        bus: {
+          operatorId: busOperatorId,
+        },
+      },
+    },
+    include: {
+      seats: {
+        include: {
+          seat: true,
+        },
+      },
+      schedule: {
+        include: {
+          route: {
+            include: {
+              fromCity: true,
+              toCity: true,
+            },
+          },
+          bus: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}

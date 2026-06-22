@@ -1,6 +1,11 @@
 import { SeatStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
+import type { AuthUser } from "../../core/middleware/auth.middleware.js";
+import {
+  isOperator,
+  requireOperatorFleetId,
+} from "../../core/utils/operatorScope.js";
 
 type ListSeatsFilters = {
   scheduleId: number;
@@ -102,16 +107,32 @@ export async function getSeatById(id: number) {
 export async function updateSeatStatus(
   id: number,
   input: UpdateSeatStatusInput,
+  caller: AuthUser,
 ) {
   const seat = await prisma.seat.findUnique({
     where: { id },
     include: {
       bookingSeats: true,
+      schedule: {
+        include: {
+          bus: true,
+        },
+      },
     },
   });
 
   if (!seat) {
     throw new ApiError(404, "Seat not found");
+  }
+
+  if (isOperator(caller)) {
+    const fleetId = requireOperatorFleetId(caller);
+    if (seat.schedule.bus.operatorId !== fleetId) {
+      throw new ApiError(
+        403,
+        "You do not have permission to update this seat",
+      );
+    }
   }
 
   if (seat.bookingSeats.length > 0 && input.status === SeatStatus.AVAILABLE) {

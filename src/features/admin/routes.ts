@@ -17,26 +17,34 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, requireRole(["ADMIN"]));
+router.use(authMiddleware);
 
 router.get(
   "/bookings",
+  requireRole(["ADMIN"]),
   validate(listAdminBookingsSchema),
   listAdminBookingsController,
 );
 
 router.get(
   "/bookings/:id",
+  requireRole(["ADMIN"]),
   validate(bookingIdParamSchema),
   getAdminBookingByIdController,
 );
 
 router.get(
   "/reports/summary",
+  requireRole(["ADMIN", "OPERATOR"]),
   validate(reportsSummarySchema),
   getReportsSummaryController,
 );
 
-router.get("/logs", validate(logsQuerySchema), getLogsController);
+router.get(
+  "/logs",
+  requireRole(["ADMIN"]),
+  validate(logsQuerySchema),
+  getLogsController,
+);
 
 export const adminRouter = router;

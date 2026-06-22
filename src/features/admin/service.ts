@@ -99,6 +99,7 @@ export async function getAdminBookingById(bookingId: number) {
 type ReportsSummaryInput = {
   fromDate?: string;
   toDate?: string;
+  busOperatorId?: number;
 };
 
 export async function getReportsSummary(input: ReportsSummaryInput) {
@@ -114,6 +115,14 @@ export async function getReportsSummary(input: ReportsSummaryInput) {
       end.setHours(23, 59, 59, 999);
       where.bookedAt.lte = end;
     }
+  }
+
+  if (input.busOperatorId) {
+    where.schedule = {
+      bus: {
+        operatorId: input.busOperatorId,
+      },
+    };
   }
 
   const [

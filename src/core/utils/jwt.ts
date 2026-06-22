@@ -5,6 +5,7 @@ import { env } from "../../config/env.js";
 export type JwtPayload = {
   sub: number; // user id
   role: string;
+  busOperatorId?: number | null;
 };
 
 export function signAccessToken(payload: JwtPayload) {

@@ -6,6 +6,7 @@ import { ApiError } from "../utils/apiError.js";
 export type AuthUser = {
   id: number;
   role: string;
+  busOperatorId?: number | null;
 };
 
 declare module "express-serve-static-core" {
@@ -36,6 +37,7 @@ export function authMiddleware(
     req.user = {
       id: payload.sub,
       role: payload.role,
+      busOperatorId: payload.busOperatorId ?? null,
     };
     next();
   } catch {
