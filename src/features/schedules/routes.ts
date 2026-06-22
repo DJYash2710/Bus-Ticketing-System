@@ -14,6 +14,7 @@ import {
   listSchedulesSchema,
   scheduleIdParamSchema,
   updateScheduleSchema,
+  validateScheduleRouteDuration,
 } from "./validators.js";
 import { authMiddleware } from "../../core/middleware/auth.middleware.js";
 import { requireRole } from "../../core/middleware/role.middleware.js";
@@ -38,6 +39,7 @@ router.post(
   authMiddleware,
   requireRole(["ADMIN", "OPERATOR"]),
   validate(createScheduleSchema),
+  validateScheduleRouteDuration,
   createScheduleController,
 );
 

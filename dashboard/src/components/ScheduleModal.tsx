@@ -34,7 +34,6 @@ interface ScheduleModalProps {
   mode: 'create' | 'edit'
   schedule?: Schedule | null
   initialStart?: Date
-  initialEnd?: Date
   buses: Bus[]
   routes: Route[]
   saving?: boolean
@@ -43,7 +42,6 @@ interface ScheduleModalProps {
     busId: number
     routeId: number
     departureTime: string
-    arrivalTime: string | null
     basePrice: number
     color: string
     recurrence?: ScheduleRecurrence
@@ -99,7 +97,6 @@ export function ScheduleModal({
   mode,
   schedule,
   initialStart,
-  initialEnd,
   buses,
   routes,
   saving,
@@ -116,8 +113,6 @@ export function ScheduleModal({
   const [busRouteSearch, setBusRouteSearch] = useState('')
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [endTime, setEndTime] = useState('')
   const [basePrice, setBasePrice] = useState(500)
   const [color, setColor] = useState<string>(SCHEDULE_COLOR_PRESETS[0])
   const [recurrenceMode, setRecurrenceMode] = useState<'none' | 'DAILY' | 'WEEKLY' | 'MONTHLY'>('none')
@@ -133,14 +128,9 @@ export function ScheduleModal({
     const start = schedule
       ? new Date(schedule.departureTime)
       : initialStart ?? new Date()
-    const end = schedule?.arrivalTime
-      ? new Date(schedule.arrivalTime)
-      : initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000)
 
     setStartDate(formatDateInput(start))
     setStartTime(formatTimeInput(start))
-    setEndDate(formatDateInput(end))
-    setEndTime(formatTimeInput(end))
     setBasePrice(Number(schedule?.basePrice ?? 500))
     setColor(schedule?.color ?? SCHEDULE_COLOR_PRESETS[0])
     setRecurrenceMode('none')
@@ -154,7 +144,7 @@ export function ScheduleModal({
     } else {
       setBusRouteKey(busRouteOptions[0]?.key ?? '')
     }
-  }, [open, schedule, initialStart, initialEnd, busRouteOptions])
+  }, [open, schedule, initialStart, busRouteOptions])
 
   const filteredOptions = busRouteOptions.filter((o) =>
     o.label.toLowerCase().includes(busRouteSearch.toLowerCase()),
@@ -162,25 +152,14 @@ export function ScheduleModal({
 
   const selectedOption = busRouteOptions.find((o) => o.key === busRouteKey)
   const selectedRoute = routes.find((r) => r.id === selectedOption?.routeId)
+  const routeDurationMinutes = selectedRoute?.estimatedDurationMinutes ?? null
 
-  function applyRouteDuration() {
-    if (!selectedRoute) return
-    const minutes =
-      selectedRoute.estimatedDurationMinutes ?? selectedRoute.durationMin ?? null
-    if (!minutes) return
+  const computedArrival = useMemo(() => {
+    if (routeDurationMinutes == null) return null
     const dep = parseTimeOnDate(startDate, startTime)
-    if (!dep) return
-    const arr = new Date(dep.getTime() + minutes * 60 * 1000)
-    setEndDate(formatDateInput(arr))
-    setEndTime(formatTimeInput(arr))
-  }
-
-  useEffect(() => {
-    if (mode === 'create' && selectedRoute) {
-      applyRouteDuration()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busRouteKey, startDate, startTime])
+    if (!dep) return null
+    return new Date(dep.getTime() + routeDurationMinutes * 60 * 1000)
+  }, [routeDurationMinutes, startDate, startTime])
 
   const weekdayLabel = startDate
     ? new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
@@ -189,16 +168,19 @@ export function ScheduleModal({
 
   const bookingsCount = schedule?.bookingsCount ?? 0
   const isRecurring = !!schedule?.recurrenceGroupId
+  const canSave = routeDurationMinutes != null && !!parseTimeOnDate(startDate, startTime)
 
   function buildPayload(chosenScope?: ScheduleScope) {
     const option = busRouteOptions.find((o) => o.key === busRouteKey)
     if (!option) throw new Error('Select a bus and route')
 
     const departure = parseTimeOnDate(startDate, startTime)
-    const arrival = parseTimeOnDate(endDate, endTime)
     if (!departure) throw new Error('Enter a valid start date and time')
-    if (!arrival) throw new Error('Enter a valid end date and time')
-    if (arrival <= departure) throw new Error('End time must be after start time')
+    if (routeDurationMinutes == null) {
+      throw new Error(
+        'This route has no duration set. Add one in Routes before scheduling trips on it.',
+      )
+    }
 
     let recurrence: ScheduleRecurrence | undefined
     if (mode === 'create' && recurrenceMode !== 'none') {
@@ -215,7 +197,6 @@ export function ScheduleModal({
       busId: option.busId,
       routeId: option.routeId,
       departureTime: departure.toISOString(),
-      arrivalTime: arrival.toISOString(),
       basePrice,
       color,
       recurrence,
@@ -341,25 +322,32 @@ export function ScheduleModal({
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">End date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">End time</label>
-                <input
-                  type="text"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  placeholder="6:30 PM"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
+            </div>
+
+            <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {routeDurationMinutes == null ? (
+                <span className="text-amber-800">
+                  This route has no duration set. Add one in Routes before scheduling trips on it.
+                </span>
+              ) : computedArrival ? (
+                <span>
+                  Arrives at:{' '}
+                  <strong>
+                    {computedArrival.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                    })}{' '}
+                    {formatTimeInput(computedArrival)}
+                  </strong>
+                  {' '}
+                  <span className="text-slate-500">
+                    ({routeDurationMinutes} min trip)
+                  </span>
+                </span>
+              ) : (
+                <span className="text-slate-500">Enter a valid start date and time to see arrival.</span>
+              )}
             </div>
 
             <div>
@@ -450,7 +438,7 @@ export function ScheduleModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !canSave}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save'}

@@ -1,6 +1,7 @@
 // src/features/auth/service.ts
 import bcrypt from "bcrypt";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import {
@@ -10,8 +11,10 @@ import {
 } from "../../core/utils/jwt.js";
 import { env } from "../../config/env.js";
 import { UserRole } from "@prisma/client";
+import { logAuthEvent } from "./authLog.js";
 
 const SALT_ROUNDS = 10;
+const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function buildTokenPayload(user: {
   id: number;
@@ -34,6 +37,34 @@ function buildTokenPayload(user: {
   return payload;
 }
 
+function refreshExpiresAt() {
+  return new Date(Date.now() + REFRESH_TTL_MS);
+}
+
+async function createRefreshTokenRow(
+  userId: number,
+  jti: string,
+  userAgent: string,
+  ipAddress: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+) {
+  await db.refreshToken.create({
+    data: {
+      userId,
+      token: jti,
+      userAgent,
+      ipAddress,
+      isRevoked: false,
+      expiresAt: refreshExpiresAt(),
+    },
+  });
+}
+
+type ClientMeta = {
+  userAgent: string;
+  ipAddress: string;
+};
+
 type RegisterInput = {
   name: string;
   email: string;
@@ -47,7 +78,10 @@ type LoginInput = {
   password: string;
 };
 
-export async function registerUser(input: RegisterInput) {
+export async function registerUser(
+  input: RegisterInput,
+  client: ClientMeta,
+) {
   const existing = await prisma.user.findFirst({
     where: { OR: [{ email: input.email }, { phone: input.phone || "" }] },
   });
@@ -58,11 +92,9 @@ export async function registerUser(input: RegisterInput) {
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-  // Generate user referral code (simple example)
   const referralCode = `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-  return prisma.$transaction(async (tx) => {
-    // Handle referral: if referralCode provided, set referredBy and credit bonus
+  const result = await prisma.$transaction(async (tx) => {
     let referredById: number | undefined;
 
     if (input.referralCode) {
@@ -89,7 +121,6 @@ export async function registerUser(input: RegisterInput) {
       },
     });
 
-    // If they used a referral code, credit referral bonus
     if (referredById) {
       await tx.loyaltyEvent.create({
         data: {
@@ -112,19 +143,16 @@ export async function registerUser(input: RegisterInput) {
 
     const payload = buildTokenPayload(user);
     const accessToken = signAccessToken(payload);
-    const refreshTokenJwt = signRefreshToken(payload);
+    const jti = randomUUID();
+    const refreshTokenJwt = signRefreshToken(payload, jti);
 
-    // Also store refresh token record (simple version: store raw jwt; later you can hash/rotate)
-    await tx.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: uuidv4(), // placeholder token identifier if you go for rotation later
-        userAgent: "unknown",
-        ipAddress: "unknown",
-        isRevoked: false,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
+    await createRefreshTokenRow(
+      user.id,
+      jti,
+      client.userAgent,
+      client.ipAddress,
+      tx,
+    );
 
     return {
       user: {
@@ -141,19 +169,38 @@ export async function registerUser(input: RegisterInput) {
       },
     };
   });
+
+  logAuthEvent("info", "Registration successful", {
+    event: "register_success",
+    userId: result.user.id,
+    email: result.user.email,
+    ip: client.ipAddress,
+  });
+
+  return result;
 }
 
-export async function loginUser(input: LoginInput) {
+export async function loginUser(input: LoginInput, client: ClientMeta) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
   });
 
   if (!user) {
+    logAuthEvent("warn", "Login failed: invalid credentials", {
+      event: "login_failure",
+      email: input.email,
+      ip: client.ipAddress,
+    });
     throw new ApiError(401, "Invalid credentials");
   }
 
   const isMatch = await bcrypt.compare(input.password, user.passwordHash);
   if (!isMatch) {
+    logAuthEvent("warn", "Login failed: invalid credentials", {
+      event: "login_failure",
+      email: input.email,
+      ip: client.ipAddress,
+    });
     throw new ApiError(401, "Invalid credentials");
   }
 
@@ -163,18 +210,21 @@ export async function loginUser(input: LoginInput) {
 
   const payload = buildTokenPayload(user);
   const accessToken = signAccessToken(payload);
-  const refreshTokenJwt = signRefreshToken(payload);
+  const jti = randomUUID();
+  const refreshTokenJwt = signRefreshToken(payload, jti);
 
-  // TODO: upsert/rotate refresh token record; keeping simple for now
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: uuidv4(),
-      userAgent: "unknown",
-      ipAddress: "unknown",
-      isRevoked: false,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
+  await createRefreshTokenRow(
+    user.id,
+    jti,
+    client.userAgent,
+    client.ipAddress,
+  );
+
+  logAuthEvent("info", "Login successful", {
+    event: "login_success",
+    userId: user.id,
+    email: user.email,
+    ip: client.ipAddress,
   });
 
   return {
@@ -193,11 +243,63 @@ export async function loginUser(input: LoginInput) {
   };
 }
 
-export async function refreshTokens(refreshToken: string) {
+export async function refreshTokens(
+  refreshToken: string,
+  client: ClientMeta,
+) {
   let payload;
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
+    logAuthEvent("warn", "Refresh failed: invalid or expired token", {
+      event: "refresh_failure",
+      ip: client.ipAddress,
+    });
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  const jti = payload.jti;
+  if (!jti) {
+    logAuthEvent("warn", "Refresh failed: missing token id", {
+      event: "refresh_failure",
+      userId: payload.sub,
+      ip: client.ipAddress,
+    });
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  const stored = await prisma.refreshToken.findUnique({
+    where: { token: jti },
+  });
+
+  if (!stored) {
+    logAuthEvent("warn", "Refresh failed: token not found in store", {
+      event: "refresh_failure",
+      userId: payload.sub,
+      ip: client.ipAddress,
+    });
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  if (stored.isRevoked) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, isRevoked: false },
+      data: { isRevoked: true },
+    });
+    logAuthEvent("warn", "Refresh token reuse detected; all sessions revoked", {
+      event: "refresh_reuse_detected",
+      userId: stored.userId,
+      ip: client.ipAddress,
+    });
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  if (stored.expiresAt < new Date()) {
+    logAuthEvent("warn", "Refresh failed: token expired in store", {
+      event: "refresh_failure",
+      userId: stored.userId,
+      ip: client.ipAddress,
+    });
     throw new ApiError(401, "Invalid or expired refresh token");
   }
 
@@ -206,22 +308,41 @@ export async function refreshTokens(refreshToken: string) {
   });
 
   if (!user || !user.isActive) {
+    logAuthEvent("warn", "Refresh failed: user not found or inactive", {
+      event: "refresh_failure",
+      userId: payload.sub,
+      ip: client.ipAddress,
+    });
     throw new ApiError(401, "User not found or inactive");
   }
 
   const tokenPayload = buildTokenPayload(user);
   const accessToken = signAccessToken(tokenPayload);
-  const newRefreshToken = signRefreshToken(tokenPayload);
+  const newJti = randomUUID();
+  const newRefreshToken = signRefreshToken(tokenPayload, newJti);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: uuidv4(),
-      userAgent: "unknown",
-      ipAddress: "unknown",
-      isRevoked: false,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
+  await prisma.$transaction([
+    prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { isRevoked: true },
+    }),
+    prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: newJti,
+        userAgent: client.userAgent,
+        ipAddress: client.ipAddress,
+        isRevoked: false,
+        expiresAt: refreshExpiresAt(),
+      },
+    }),
+  ]);
+
+  logAuthEvent("info", "Token refresh successful", {
+    event: "refresh_success",
+    userId: user.id,
+    email: user.email,
+    ip: client.ipAddress,
   });
 
   return {
@@ -240,10 +361,16 @@ export async function refreshTokens(refreshToken: string) {
   };
 }
 
-export async function logoutUser(userId: number) {
+export async function logoutUser(userId: number, ip?: string) {
   await prisma.refreshToken.updateMany({
     where: { userId, isRevoked: false },
     data: { isRevoked: true },
+  });
+
+  logAuthEvent("info", "Logout successful", {
+    event: "logout",
+    userId,
+    ...(ip !== undefined ? { ip } : {}),
   });
 
   return { message: "Logged out successfully" };

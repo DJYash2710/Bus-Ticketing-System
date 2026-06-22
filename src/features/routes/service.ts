@@ -49,6 +49,7 @@ export async function createRoute(input: CreateRouteInput) {
       toCityId: input.toCityId,
       distanceKm: input.distanceKm ?? null,
       durationMin: input.durationMin ?? null,
+      estimatedDurationMinutes: input.durationMin ?? null,
     },
     include: {
       fromCity: true,
@@ -94,11 +95,18 @@ export async function updateRoute(id: number, input: UpdateRouteInput) {
     throw new ApiError(404, "Route not found");
   }
 
+  const nextDurationMin =
+    input.durationMin !== undefined ? input.durationMin : route.durationMin;
+
   return prisma.route.update({
     where: { id },
     data: {
       distanceKm: input.distanceKm ?? route.distanceKm,
-      durationMin: input.durationMin ?? route.durationMin,
+      durationMin: nextDurationMin,
+      estimatedDurationMinutes:
+        input.durationMin !== undefined
+          ? (input.durationMin ?? null)
+          : (route.estimatedDurationMinutes ?? route.durationMin),
     },
     include: { fromCity: true, toCity: true },
   });

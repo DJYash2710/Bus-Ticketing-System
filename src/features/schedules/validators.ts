@@ -1,5 +1,30 @@
 // src/features/schedules/validators.ts
+import type { NextFunction, Request, Response } from "express";
 import Joi from "joi";
+import { prisma } from "../../config/db.js";
+import { ApiError } from "../../core/utils/apiError.js";
+
+export const ROUTE_DURATION_REQUIRED_MSG =
+  "This route has no duration set. Add one in Routes before scheduling trips on it.";
+
+/** Ensures the route referenced in a create-schedule body has estimatedDurationMinutes set. */
+export async function validateScheduleRouteDuration(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  try {
+    const routeId = Number(req.body.routeId);
+    const route = await prisma.route.findUnique({ where: { id: routeId } });
+    if (!route) throw new ApiError(404, "Route not found");
+    if (route.estimatedDurationMinutes == null) {
+      throw new ApiError(400, ROUTE_DURATION_REQUIRED_MSG);
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
 
 const recurrenceSchema = Joi.object({
   frequency: Joi.string().valid("DAILY", "WEEKLY", "MONTHLY").required(),

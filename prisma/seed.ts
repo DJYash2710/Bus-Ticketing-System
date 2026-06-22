@@ -313,13 +313,16 @@ async function main() {
 
     const route = await prisma.route.upsert({
       where: { code: r.code },
-      update: {},
+      update: {
+        estimatedDurationMinutes: r.durationMin,
+      },
       create: {
         code: r.code,
         fromCityId: fromCity.id,
         toCityId: toCity.id,
         distanceKm: r.distanceKm,
         durationMin: r.durationMin,
+        estimatedDurationMinutes: r.durationMin,
       },
     });
     routes[r.code] = route;

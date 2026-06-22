@@ -7,7 +7,9 @@ import {
   getLogsController,
   getReportsSummaryController,
   listAdminBookingsController,
+  streamLogsController,
 } from "./controller.js";
+import { adminSseAuthMiddleware } from "./sseAuth.middleware.js";
 import {
   bookingIdParamSchema,
   listAdminBookingsSchema,
@@ -16,6 +18,14 @@ import {
 } from "./validators.js";
 
 const router = Router();
+
+// EventSource cannot send Authorization headers; ?token= is a scoped exception for this route only.
+router.get(
+  "/logs/stream",
+  adminSseAuthMiddleware,
+  requireRole(["ADMIN"]),
+  streamLogsController,
+);
 
 router.use(authMiddleware);
 

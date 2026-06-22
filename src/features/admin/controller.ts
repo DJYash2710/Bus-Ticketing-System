@@ -7,6 +7,7 @@ import {
   listAdminBookings,
 } from "./service.js";
 import { readRecentLogs } from "./logs.service.js";
+import { logEmitter } from "../../config/logEmitter.js";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
 
 type ValidatedQueryRequest = Request & {
@@ -95,4 +96,26 @@ export async function getLogsController(
   } catch (err) {
     next(err);
   }
+}
+
+export function streamLogsController(req: Request, res: Response) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const onLog = (entry: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(entry)}\n\n`);
+  };
+
+  logEmitter.on("log", onLog);
+
+  const heartbeat = setInterval(() => {
+    res.write(": heartbeat\n\n");
+  }, 30_000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    logEmitter.off("log", onLog);
+  });
 }

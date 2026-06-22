@@ -8,6 +8,7 @@ import {
   requireOperatorFleetId,
 } from "../../core/utils/operatorScope.js";
 import { ScheduleStatus, SeatStatus, type Prisma } from "@prisma/client";
+import { ROUTE_DURATION_REQUIRED_MSG } from "./validators.js";
 
 export type RecurrenceInput = {
   frequency: "DAILY" | "WEEKLY" | "MONTHLY";
@@ -114,6 +115,19 @@ function scheduleEndTime(
 ): Date {
   if (arrival) return arrival;
   return new Date(departure.getTime() + 60 * 60 * 1000);
+}
+
+function requireRouteDuration(route: {
+  estimatedDurationMinutes: number | null;
+}): number {
+  if (route.estimatedDurationMinutes == null) {
+    throw new ApiError(400, ROUTE_DURATION_REQUIRED_MSG);
+  }
+  return route.estimatedDurationMinutes;
+}
+
+function computeArrivalTime(departure: Date, durationMinutes: number): Date {
+  return new Date(departure.getTime() + durationMinutes * 60 * 1000);
 }
 
 function rangesOverlap(
@@ -296,18 +310,13 @@ export async function createSchedule(
 
   assertBusOwnership(bus, caller);
 
+  const durationMinutes = requireRouteDuration(route);
   const departure = new Date(input.departureTime);
-  const arrival = input.arrivalTime ? new Date(input.arrivalTime) : null;
-
-  if (arrival && arrival <= departure) {
-    throw new ApiError(400, "arrivalTime must be after departureTime");
-  }
+  const arrival = computeArrivalTime(departure, durationMinutes);
 
   const color = input.color ?? "#4F46E5";
   const status = input.status ?? ScheduleStatus.ACTIVE;
-  const durationMs = arrival
-    ? arrival.getTime() - departure.getTime()
-    : null;
+  const durationMs = durationMinutes * 60 * 1000;
 
   if (!input.recurrence) {
     const conflict = await findConflictingSchedule(
@@ -347,10 +356,7 @@ export async function createSchedule(
   }
 
   for (const occDep of occurrenceDates) {
-    const occArr =
-      durationMs != null
-        ? new Date(occDep.getTime() + durationMs)
-        : null;
+    const occArr = new Date(occDep.getTime() + durationMs);
     const conflict = await findConflictingSchedule(
       input.busId,
       occDep,
@@ -369,10 +375,7 @@ export async function createSchedule(
   const schedules = await prisma.$transaction(async (tx) => {
     const created: Awaited<ReturnType<typeof createScheduleWithSeats>>[] = [];
     for (const occDep of occurrenceDates) {
-      const occArr =
-        durationMs != null
-          ? new Date(occDep.getTime() + durationMs)
-          : null;
+      const occArr = new Date(occDep.getTime() + durationMs);
       const row = await createScheduleWithSeats(tx, {
         routeId: input.routeId,
         busId: input.busId,
@@ -534,29 +537,30 @@ export async function updateSchedule(
 ) {
   const schedule = await prisma.schedule.findUnique({
     where: { id },
-    include: { bus: true, _count: { select: { bookings: true } } },
+    include: {
+      bus: true,
+      route: true,
+      _count: { select: { bookings: true } },
+    },
   });
 
   if (!schedule) throw new ApiError(404, "Schedule not found");
 
   assertBusOwnership(schedule.bus, caller);
 
+  const durationMinutes = requireRouteDuration(schedule.route);
   const scope = input.scope ?? "this";
   const targetIds = await resolveTargetSchedules(schedule, scope);
 
-  const timeChanging =
-    input.departureTime !== undefined || input.arrivalTime !== undefined;
+  const timeChanging = input.departureTime !== undefined;
 
   const newDeparture = input.departureTime
     ? new Date(input.departureTime)
     : schedule.departureTime;
 
-  const newArrival =
-    input.arrivalTime !== undefined
-      ? input.arrivalTime
-        ? new Date(input.arrivalTime)
-        : null
-      : schedule.arrivalTime;
+  const newArrival = input.departureTime !== undefined
+    ? computeArrivalTime(newDeparture, durationMinutes)
+    : schedule.arrivalTime;
 
   if (newArrival && newArrival <= newDeparture) {
     throw new ApiError(400, "arrivalTime must be after departureTime");
@@ -566,13 +570,6 @@ export async function updateSchedule(
     input.departureTime !== undefined
       ? newDeparture.getTime() - schedule.departureTime.getTime()
       : 0;
-
-  const arrDeltaMs =
-    input.arrivalTime !== undefined && schedule.arrivalTime
-      ? (newArrival?.getTime() ?? 0) - schedule.arrivalTime.getTime()
-      : input.arrivalTime !== undefined && newArrival
-        ? newArrival.getTime() - schedule.departureTime.getTime()
-        : 0;
 
   const targets = await prisma.schedule.findMany({
     where: { id: { in: targetIds } },
@@ -584,22 +581,13 @@ export async function updateSchedule(
       const tDep =
         target.id === schedule.id && input.departureTime !== undefined
           ? newDeparture
-          : new Date(target.departureTime.getTime() + depDeltaMs);
+          : input.departureTime !== undefined
+            ? new Date(target.departureTime.getTime() + depDeltaMs)
+            : target.departureTime;
 
-      let tArr: Date | null;
-      if (target.id === schedule.id && input.arrivalTime !== undefined) {
-        tArr = newArrival;
-      } else if (input.arrivalTime !== undefined) {
-        tArr = target.arrivalTime
-          ? new Date(target.arrivalTime.getTime() + arrDeltaMs)
-          : newArrival
-            ? new Date(tDep.getTime() + (newArrival.getTime() - newDeparture.getTime()))
-            : null;
-      } else if (input.departureTime !== undefined && target.arrivalTime) {
-        tArr = new Date(target.arrivalTime.getTime() + depDeltaMs);
-      } else {
-        tArr = target.arrivalTime;
-      }
+      const tArr = input.departureTime !== undefined
+        ? computeArrivalTime(tDep, durationMinutes)
+        : target.arrivalTime;
 
       const conflict = await findConflictingSchedule(
         target.busId,
@@ -635,25 +623,9 @@ export async function updateSchedule(
           );
         }
 
-        if (target.id === schedule.id && input.arrivalTime !== undefined) {
-          data.arrivalTime = newArrival;
-        } else if (input.arrivalTime !== undefined) {
-          if (target.arrivalTime) {
-            data.arrivalTime = new Date(
-              target.arrivalTime.getTime() + arrDeltaMs,
-            );
-          } else if (newArrival) {
-            const tDep = (data.departureTime as Date) ?? target.departureTime;
-            data.arrivalTime = new Date(
-              tDep.getTime() + (newArrival.getTime() - newDeparture.getTime()),
-            );
-          } else {
-            data.arrivalTime = null;
-          }
-        } else if (input.departureTime !== undefined && target.arrivalTime) {
-          data.arrivalTime = new Date(
-            target.arrivalTime.getTime() + depDeltaMs,
-          );
+        if (input.departureTime !== undefined) {
+          const tDep = (data.departureTime as Date) ?? target.departureTime;
+          data.arrivalTime = computeArrivalTime(tDep, durationMinutes);
         }
       }
 

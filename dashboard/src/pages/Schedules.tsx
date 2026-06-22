@@ -10,10 +10,10 @@ import type {
   EventDropArg,
   EventInput,
 } from '@fullcalendar/core'
-import type { DateClickArg, EventResizeDoneArg } from '@fullcalendar/interaction'
+import type { DateClickArg } from '@fullcalendar/interaction'
 import { DayPicker } from 'react-day-picker'
 import { Link } from 'react-router-dom'
-import { Calendar, Plus } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { listBuses } from '../api/buses'
 import { listRoutes } from '../api/routes'
 import { listOperators } from '../api/operators'
@@ -40,18 +40,31 @@ function toDateOnly(d: Date) {
   return d.toISOString().slice(0, 10)
 }
 
+function contrastTextColor(hex: string): string {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) return '#ffffff'
+  const r = parseInt(normalized.slice(0, 2), 16)
+  const g = parseInt(normalized.slice(2, 4), 16)
+  const b = parseInt(normalized.slice(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.55 ? '#1e293b' : '#ffffff'
+}
+
 function scheduleToEvent(schedule: Schedule): EventInput {
   const booked = schedule.bookedSeatsCount ?? schedule.bookingsCount ?? 0
   const total = schedule.seatsCount ?? schedule._count?.seats ?? 0
   const busLabel = schedule.bus?.registrationNo ?? `#${schedule.busId}`
+  const bg = schedule.color ?? '#4F46E5'
 
   return {
     id: String(schedule.id),
     title: `${busLabel} · ${booked}/${total}`,
     start: schedule.departureTime,
     end: schedule.arrivalTime ?? undefined,
-    backgroundColor: schedule.color ?? '#4F46E5',
-    borderColor: schedule.color ?? '#4F46E5',
+    backgroundColor: bg,
+    borderColor: bg,
+    textColor: contrastTextColor(bg),
+    classNames: ['schedule-event-chip'],
     extendedProps: { schedule },
   }
 }
@@ -64,6 +77,7 @@ export function Schedules() {
   const calendarRef = useRef<FullCalendar>(null)
 
   const [view, setView] = useState<CalendarView>('timeGridWeek')
+  const [calendarTitle, setCalendarTitle] = useState('')
   const [range, setRange] = useState<{ from: string; to: string } | null>(null)
   const [hiddenBusIds, setHiddenBusIds] = useState<Set<number>>(new Set())
 
@@ -71,7 +85,6 @@ export function Schedules() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
   const [createStart, setCreateStart] = useState<Date | undefined>()
-  const [createEnd, setCreateEnd] = useState<Date | undefined>()
 
   const [preview, setPreview] = useState<{
     schedule: Schedule
@@ -84,10 +97,9 @@ export function Schedules() {
   const [scopePickerOpen, setScopePickerOpen] = useState(false)
   const [pendingScopeAction, setPendingScopeAction] = useState<
     | {
-        type: 'move' | 'resize'
+        type: 'move'
         schedule: Schedule
         departureTime: string
-        arrivalTime: string | null
         revert: () => void
       }
     | null
@@ -193,15 +205,13 @@ export function Schedules() {
     mutationFn: async ({
       id,
       departureTime,
-      arrivalTime,
       scope,
     }: {
       id: number
       departureTime: string
-      arrivalTime: string | null
       scope: ScheduleScope
-    }) => updateSchedule(id, { departureTime, arrivalTime, scope }),
-        onSuccess: () => {
+    }) => updateSchedule(id, { departureTime, scope }),
+    onSuccess: () => {
       invalidate()
       activeRevertRef.current = null
       showToast('Schedule updated', 'success')
@@ -219,13 +229,23 @@ export function Schedules() {
 
   const handleDatesSet = useCallback((info: DatesSetArg) => {
     setRange({ from: toDateOnly(info.start), to: toDateOnly(info.end) })
+    setCalendarTitle(info.view.title)
   }, [])
+
+  const pageTitle = isAdmin ? 'All Schedules' : 'My Schedules'
+
+  function calendarNav(action: 'prev' | 'next' | 'today') {
+    const api = calendarRef.current?.getApi()
+    if (!api) return
+    if (action === 'prev') api.prev()
+    else if (action === 'next') api.next()
+    else api.today()
+  }
 
   function openCreate(start: Date) {
     setModalMode('create')
     setEditingSchedule(null)
     setCreateStart(start)
-    setCreateEnd(new Date(start.getTime() + 60 * 60 * 1000))
     setPreview(null)
     setModalOpen(true)
   }
@@ -268,14 +288,12 @@ export function Schedules() {
   function commitMove(
     schedule: Schedule,
     start: Date,
-    end: Date | null,
     revert: () => void,
     scope: ScheduleScope = 'this',
   ) {
     moveMutation.mutate({
       id: schedule.id,
       departureTime: start.toISOString(),
-      arrivalTime: end?.toISOString() ?? null,
       scope,
     })
     void revert
@@ -284,7 +302,6 @@ export function Schedules() {
   function startDragCommit(
     schedule: Schedule,
     start: Date,
-    end: Date | null,
     revert: () => void,
   ) {
     activeRevertRef.current = revert
@@ -295,13 +312,12 @@ export function Schedules() {
           type: 'move',
           schedule,
           departureTime: start.toISOString(),
-          arrivalTime: end?.toISOString() ?? null,
           revert,
         })
         setScopePickerOpen(true)
         return
       }
-      commitMove(schedule, start, end, revert, 'this')
+      commitMove(schedule, start, revert, 'this')
     }
 
     if ((schedule.bookingsCount ?? 0) > 0) {
@@ -309,7 +325,6 @@ export function Schedules() {
         type: 'move',
         schedule,
         departureTime: start.toISOString(),
-        arrivalTime: end?.toISOString() ?? null,
         revert,
       })
       setPendingAfterWarning(() => proceed)
@@ -322,15 +337,7 @@ export function Schedules() {
   function handleEventDrop(info: EventDropArg) {
     const schedule = info.event.extendedProps.schedule as Schedule
     const start = info.event.start!
-    const end = info.event.end
-    startDragCommit(schedule, start, end, () => info.revert())
-  }
-
-  function handleEventResize(info: EventResizeDoneArg) {
-    const schedule = info.event.extendedProps.schedule as Schedule
-    const start = info.event.start!
-    const end = info.event.end
-    startDragCommit(schedule, start, end, () => info.revert())
+    startDragCommit(schedule, start, () => info.revert())
   }
 
   function toggleBus(busId: number) {
@@ -347,40 +354,7 @@ export function Schedules() {
     !schedulesQuery.isLoading && (schedulesQuery.data?.length ?? 0) === 0 && hasBuses
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">My Schedules</h1>
-          <p className="text-sm text-slate-500">
-            Double-click a time slot to create · drag to reschedule
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={view}
-            onChange={(e) => {
-              const v = e.target.value as CalendarView
-              setView(v)
-              calendarRef.current?.getApi().changeView(v)
-            }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="timeGridDay">Day</option>
-            <option value="timeGridWeek">Week</option>
-            <option value="dayGridMonth">Month</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => openCreate(new Date())}
-            disabled={!hasBuses}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" />
-            New schedule
-          </button>
-        </div>
-      </div>
-
+    <div className="flex h-[calc(100vh-7rem)] flex-col">
       {!hasBuses && !busesQuery.isLoading ? (
         <EmptyState
           icon={Calendar}
@@ -396,103 +370,177 @@ export function Schedules() {
           }
         />
       ) : (
-        <div className="flex min-h-0 flex-1 gap-4">
-          <aside className="flex w-56 shrink-0 flex-col gap-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Jump to date
-              </p>
-              <DayPicker
-                mode="single"
-                onSelect={(day) => {
-                  if (day) calendarRef.current?.getApi().gotoDate(day)
-                }}
-                classNames={{
-                  root: 'text-sm',
-                  day_button: 'h-8 w-8 rounded-md hover:bg-indigo-50',
-                  selected: 'bg-indigo-600 text-white hover:bg-indigo-600',
-                  today: 'font-bold text-indigo-600',
-                }}
-              />
+        <>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h1 className="mr-1 text-xl font-semibold text-slate-900">{pageTitle}</h1>
+              <button
+                type="button"
+                onClick={() => calendarNav('today')}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Today
+              </button>
+              <div className="flex overflow-hidden rounded-lg border border-slate-300">
+                <button
+                  type="button"
+                  onClick={() => calendarNav('prev')}
+                  aria-label="Previous"
+                  className="border-r border-slate-300 bg-white px-2 py-1.5 text-slate-700 hover:bg-slate-50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => calendarNav('next')}
+                  aria-label="Next"
+                  className="bg-white px-2 py-1.5 text-slate-700 hover:bg-slate-50"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <h2 className="truncate text-lg font-medium text-slate-700">{calendarTitle}</h2>
             </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Show buses
-              </p>
-              <div className="space-y-3">
-                {busesByOperator.map((group) => (
-                  <div key={group.label}>
-                    {isAdmin && (
-                      <p className="mb-1 text-xs font-medium text-slate-400">{group.label}</p>
-                    )}
-                    <ul className="space-y-1">
-                      {group.buses.map((bus) => (
-                        <li key={bus.id}>
-                          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={!hiddenBusIds.has(bus.id)}
-                              onChange={() => toggleBus(bus.id)}
-                              className="rounded border-slate-300 text-indigo-600"
-                            />
-                            <span className="truncate">{bus.registrationNo}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={view}
+                onChange={(e) => {
+                  const v = e.target.value as CalendarView
+                  setView(v)
+                  calendarRef.current?.getApi().changeView(v)
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+              >
+                <option value="timeGridDay">Day</option>
+                <option value="timeGridWeek">Week</option>
+                <option value="dayGridMonth">Month</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => openCreate(new Date())}
+                disabled={!hasBuses}
+                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                New schedule
+              </button>
             </div>
-          </aside>
-
-          <div className="relative min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-            {schedulesQuery.isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
-                <div className="space-y-2 text-center">
-                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
-                  <p className="text-sm text-slate-500">Loading schedules...</p>
-                </div>
-              </div>
-            )}
-
-            {isEmpty && !schedulesQuery.isLoading && (
-              <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex justify-center p-4">
-                <div className="max-w-sm rounded-xl border border-dashed border-slate-300 bg-white/95 px-6 py-8 text-center shadow-sm">
-                  <Calendar className="mx-auto mb-3 h-10 w-10 text-indigo-400" />
-                  <p className="font-medium text-slate-900">No schedules in this range</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Double-click any time slot or use New schedule to add your first trip.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView={view}
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: '',
-              }}
-              height="100%"
-              editable
-              selectable
-              events={events}
-              datesSet={handleDatesSet}
-              dateClick={handleDateClick}
-              eventClick={handleEventClick}
-              eventDrop={handleEventDrop}
-              eventResize={handleEventResize}
-              slotMinTime="05:00:00"
-              slotMaxTime="24:00:00"
-              allDaySlot={false}
-              nowIndicator
-            />
           </div>
-        </div>
+
+          <p className="mb-2 text-sm text-slate-500">
+            Double-click a time slot to create · drag to reschedule
+          </p>
+
+          <div className="flex min-h-0 flex-1 gap-3">
+            <div className="relative flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+              {schedulesQuery.isLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
+                  <div className="space-y-2 text-center">
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+                    <p className="text-sm text-slate-500">Loading schedules...</p>
+                  </div>
+                </div>
+              )}
+
+              {isEmpty && !schedulesQuery.isLoading && (
+                <div className="pointer-events-none absolute inset-x-0 top-12 z-10 flex justify-center p-4">
+                  <div className="max-w-sm rounded-xl border border-dashed border-slate-300 bg-white/95 px-6 py-8 text-center shadow-sm">
+                    <Calendar className="mx-auto mb-3 h-10 w-10 text-indigo-400" />
+                    <p className="font-medium text-slate-900">No schedules in this range</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Double-click any time slot or use New schedule to add your first trip.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="min-h-0 flex-1">
+                <FullCalendar
+                  ref={calendarRef}
+                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                  initialView={view}
+                  headerToolbar={false}
+                  height="100%"
+                  eventStartEditable
+                  eventDurationEditable={false}
+                  selectable
+                  events={events}
+                  datesSet={handleDatesSet}
+                  dateClick={handleDateClick}
+                  eventClick={handleEventClick}
+                  eventDrop={handleEventDrop}
+                  slotMinTime="05:00:00"
+                  slotMaxTime="24:00:00"
+                  allDaySlot={false}
+                  nowIndicator
+                />
+              </div>
+            </div>
+
+            <aside className="flex w-44 shrink-0 flex-col gap-3 self-start rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+              <div className="w-full overflow-hidden">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Jump to date
+                </p>
+                <DayPicker
+                  mode="single"
+                  onSelect={(day) => {
+                    if (day) calendarRef.current?.getApi().gotoDate(day)
+                  }}
+                  classNames={{
+                    root: 'w-full max-w-full text-xs',
+                    months: 'w-full',
+                    month: 'w-full space-y-2',
+                    month_caption: 'flex justify-center px-1',
+                    caption_label: 'text-xs font-medium text-slate-700',
+                    nav: 'flex items-center gap-1',
+                    button_previous: 'h-6 w-6 rounded hover:bg-indigo-50',
+                    button_next: 'h-6 w-6 rounded hover:bg-indigo-50',
+                    month_grid: 'w-full table-fixed border-collapse',
+                    weekdays: 'text-[0.65rem] text-slate-400',
+                    weekday: 'p-0 text-center font-medium',
+                    week: 'mt-0.5',
+                    day: 'p-0 text-center',
+                    day_button:
+                      'mx-auto flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-indigo-50',
+                    selected: '!bg-indigo-600 !text-white hover:!bg-indigo-600',
+                    today: 'font-bold text-indigo-600',
+                    outside: 'text-slate-300',
+                  }}
+                />
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Show buses
+                </p>
+                <div className="space-y-2">
+                  {busesByOperator.map((group) => (
+                    <div key={group.label}>
+                      {isAdmin && (
+                        <p className="mb-0.5 text-[0.65rem] font-medium text-slate-400">{group.label}</p>
+                      )}
+                      <ul className="space-y-0.5">
+                        {group.buses.map((bus) => (
+                          <li key={bus.id}>
+                            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={!hiddenBusIds.has(bus.id)}
+                                onChange={() => toggleBus(bus.id)}
+                                className="rounded border-slate-300 text-indigo-600"
+                              />
+                              <span className="truncate">{bus.registrationNo}</span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+          </div>
+        </>
       )}
 
       {preview && (
@@ -509,7 +557,6 @@ export function Schedules() {
         mode={modalMode}
         schedule={editingSchedule}
         initialStart={createStart}
-        initialEnd={createEnd}
         buses={buses}
         routes={routes}
         saving={saveMutation.isPending || deleteMutation.isPending}
@@ -540,9 +587,6 @@ export function Schedules() {
             commitMove(
               pendingScopeAction.schedule,
               new Date(pendingScopeAction.departureTime),
-              pendingScopeAction.arrivalTime
-                ? new Date(pendingScopeAction.arrivalTime)
-                : null,
               pendingScopeAction.revert,
               scope,
             )

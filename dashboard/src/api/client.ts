@@ -1,113 +1,112 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import type { ApiResponse } from '../types/api'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import type { ApiResponse } from "../types/api";
 import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
   setTokens,
-} from '../lib/storage'
+} from "../lib/storage";
 
 const baseURL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1'
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api/v1";
 
 export const apiClient = axios.create({
   baseURL,
-  headers: { 'Content-Type': 'application/json' },
-})
+  headers: { "Content-Type": "application/json" },
+});
 
-let isRefreshing = false
+let isRefreshing = false;
 let refreshQueue: Array<{
-  resolve: (token: string) => void
-  reject: (err: unknown) => void
-}> = []
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}> = [];
 
 function processQueue(error: unknown, token: string | null) {
   refreshQueue.forEach(({ resolve, reject }) => {
-    if (error || !token) reject(error)
-    else resolve(token)
-  })
-  refreshQueue = []
+    if (error || !token) reject(error);
+    else resolve(token);
+  });
+  refreshQueue = [];
 }
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = getAccessToken()
+  const token = getAccessToken();
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return config
-})
+  return config;
+});
 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const original = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean
-    }
+      _retry?: boolean;
+    };
 
     if (error.response?.status !== 401 || original._retry) {
-      return Promise.reject(error)
+      return Promise.reject(error);
     }
 
-    const refreshToken = getRefreshToken()
+    const refreshToken = getRefreshToken();
     if (!refreshToken) {
-      clearTokens()
-      window.location.href = '/login'
-      return Promise.reject(error)
+      clearTokens();
+      window.location.href = "/login";
+      return Promise.reject(error);
     }
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         refreshQueue.push({
           resolve: (token: string) => {
-            original.headers.Authorization = `Bearer ${token}`
-            resolve(apiClient(original))
+            original.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(original));
           },
           reject,
-        })
-      })
+        });
+      });
     }
 
-    original._retry = true
-    isRefreshing = true
+    original._retry = true;
+    isRefreshing = true;
 
     try {
-      const { data } = await axios.post<ApiResponse<{ tokens: { accessToken: string; refreshToken: string } }>>(
-        `${baseURL}/auth/refresh`,
-        { refreshToken },
-      )
-      const { accessToken, refreshToken: newRefresh } = data.data.tokens
-      setTokens(accessToken, newRefresh)
-      processQueue(null, accessToken)
-      original.headers.Authorization = `Bearer ${accessToken}`
-      return apiClient(original)
+      const { data } = await axios.post<
+        ApiResponse<{ tokens: { accessToken: string; refreshToken: string } }>
+      >(`${baseURL}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefresh } = data.data.tokens;
+      setTokens(accessToken, newRefresh);
+      processQueue(null, accessToken);
+      original.headers.Authorization = `Bearer ${accessToken}`;
+      return apiClient(original);
     } catch (refreshError) {
-      processQueue(refreshError, null)
-      clearTokens()
-      window.location.href = '/login'
-      return Promise.reject(refreshError)
+      processQueue(refreshError, null);
+      clearTokens();
+      window.location.href = "/login";
+      return Promise.reject(refreshError);
     } finally {
-      isRefreshing = false
+      isRefreshing = false;
     }
   },
-)
+);
 
 export function unwrap<T>(response: { data: ApiResponse<T> }): T {
-  return response.data.data
+  return response.data.data;
 }
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as { message?: string } | undefined
-    return data?.message ?? error.message
+    const data = error.response?.data as { message?: string } | undefined;
+    return data?.message ?? error.message;
   }
-  if (error instanceof Error) return error.message
-  return 'Something went wrong'
+  if (error instanceof Error) return error.message;
+  return "Something went wrong";
 }
 
 export function getApiErrorDetails(error: unknown): unknown {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as { details?: unknown } | undefined
-    return data?.details
+    const data = error.response?.data as { details?: unknown } | undefined;
+    return data?.details;
   }
-  return undefined
+  return undefined;
 }

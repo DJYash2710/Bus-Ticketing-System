@@ -1,10 +1,10 @@
 // src/server.ts
-import { app } from './app.js';
-import { env } from './config/env.js';
-import { logger } from './config/logger.js';
+import { app } from "./app.js";
+import { env } from "./config/env.js";
+import { logger } from "./config/logger.js";
 
 const port = Number(env.port);
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
   logger.info(`Server running on http://localhost:${port}`);
 });
