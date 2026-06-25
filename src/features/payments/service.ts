@@ -1,11 +1,11 @@
-import { PaymentStatus, BookingStatus, SeatStatus } from "@prisma/client";
+import { PaymentStatus, BookingStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
-import { calculateLoyaltyCreditsEarned } from "../../core/utils/pricing.js";
 import { expireBookingHold, expireStaleHolds } from "../bookings/holdExpiry.js";
 import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
 import { auditLogFrom } from "../../core/audit/auditLog.service.js";
 import type { AuditContext } from "../../core/audit/requestContext.js";
+import { finalizeSuccessfulPayment } from "./finalizeSuccessfulPayment.js";
 
 export async function initiatePayment(
   bookingId: number,
@@ -110,136 +110,14 @@ export async function confirmPayment(
     throw new ApiError(410, "Seat hold has expired. Please book again.");
   }
 
-  const seatIds = payment.booking.seats.map((item) => item.seatId);
   const auditCtx = audit ?? { actorId: userId, actorRole: "USER" };
 
-  const result = await prisma.$transaction(async (tx) => {
-    const pendingBooking = await tx.booking.findFirst({
-      where: {
-        id: payment.bookingId,
-        status: BookingStatus.PENDING,
-        holdExpiresAt: { gte: new Date() },
-      },
-    });
-
-    if (!pendingBooking) {
-      throw new ApiError(410, "Seat hold has expired. Please book again.");
-    }
-
-    const updatedSeats = await tx.seat.updateMany({
-      where: {
-        id: { in: seatIds },
-        status: SeatStatus.HELD,
-      },
-      data: {
-        status: SeatStatus.BOOKED,
-        heldUntil: null,
-      },
-    });
-
-    if (updatedSeats.count !== seatIds.length) {
-      throw new ApiError(
-        409,
-        "Seats are no longer held for this booking. Please book again.",
-      );
-    }
-
-    const updatedPayment = await tx.payment.update({
-      where: { id: paymentId },
-      data: {
-        status: PaymentStatus.SUCCESS,
-        providerRef: `MOCK-TXN-${Date.now()}`,
-        paidAt: new Date(),
-        rawResponse: JSON.stringify({ note: "Mock payment confirmed" }),
-      },
-    });
-
-    const booking = await tx.booking.update({
-      where: { id: payment.bookingId },
-      data: {
-        status: BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.SUCCESS,
-      },
-    });
-
-    const creditsEarned = calculateLoyaltyCreditsEarned(Number(booking.baseAmount));
-
-    if (creditsEarned > 0) {
-      const existingEarn = await tx.loyaltyEvent.findFirst({
-        where: {
-          bookingId: booking.id,
-          type: "EARN_BOOKING",
-        },
-      });
-
-      if (!existingEarn) {
-        await tx.loyaltyEvent.create({
-          data: {
-            userId: booking.userId,
-            bookingId: booking.id,
-            type: "EARN_BOOKING",
-            credits: creditsEarned,
-            description: `Earned ${creditsEarned} credits on booking #${booking.id}`,
-          },
-        });
-
-        await tx.user.update({
-          where: { id: booking.userId },
-          data: {
-            creditsBalance: { increment: creditsEarned },
-          },
-        });
-      }
-    }
-
-    return { updatedPayment, booking, creditsEarned };
+  return finalizeSuccessfulPayment({
+    paymentId,
+    providerRef: `MOCK-TXN-${Date.now()}`,
+    rawResponse: JSON.stringify({ note: "Mock payment confirmed" }),
+    audit: auditCtx,
   });
-
-  auditLogFrom(auditCtx, {
-    action: AuditAction.PAYMENT_SUCCESS,
-    entityType: AuditEntityType.PAYMENT,
-    entityId: result.updatedPayment.id,
-    metadata: {
-      bookingId: payment.bookingId,
-      amount: Number(result.updatedPayment.amount),
-    },
-  });
-
-  auditLogFrom(auditCtx, {
-    action: AuditAction.BOOKING_CONFIRMED,
-    entityType: AuditEntityType.BOOKING,
-    entityId: payment.bookingId,
-    metadata: {
-      paymentId: result.updatedPayment.id,
-      amount: Number(result.updatedPayment.amount),
-    },
-  });
-
-  for (const seatLink of payment.booking.seats) {
-    auditLogFrom(auditCtx, {
-      action: AuditAction.SEAT_BOOKED,
-      entityType: AuditEntityType.SEAT,
-      entityId: seatLink.seatId,
-      metadata: {
-        bookingId: payment.bookingId,
-        scheduleId: payment.booking.scheduleId,
-      },
-    });
-  }
-
-  if (result.creditsEarned > 0) {
-    auditLogFrom(auditCtx, {
-      action: AuditAction.CREDITS_EARNED,
-      entityType: AuditEntityType.LOYALTY,
-      entityId: userId,
-      metadata: {
-        bookingId: payment.bookingId,
-        credits: result.creditsEarned,
-      },
-    });
-  }
-
-  return result.updatedPayment;
 }
 
 export async function getPaymentByBookingId(bookingId: number, userId: number) {
