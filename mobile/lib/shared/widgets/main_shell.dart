@@ -20,9 +20,16 @@ class MainShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     final index = _indexForLocation(location);
 
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: NavigationBar(
+    return PopScope(
+      canPop: index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && index > 0) {
+          context.go(RoutePaths.search);
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(child: child),
+        bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         backgroundColor: Colors.white,
         indicatorColor: AppColors.navActiveBg,
@@ -51,6 +58,7 @@ class MainShell extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

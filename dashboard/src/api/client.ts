@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type { ApiResponse } from "../types/api";
+import { API_BASE_URL } from "../lib/api-base-url";
 import {
   clearTokens,
   getAccessToken,
@@ -7,8 +8,7 @@ import {
   setTokens,
 } from "../lib/storage";
 
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api/v1";
+const baseURL = API_BASE_URL;
 
 export const apiClient = axios.create({
   baseURL,
@@ -45,6 +45,11 @@ apiClient.interceptors.response.use(
     };
 
     if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
+    }
+
+    const requestUrl = original.url ?? "";
+    if (requestUrl.includes("/auth/login") || requestUrl.includes("/auth/register")) {
       return Promise.reject(error);
     }
 

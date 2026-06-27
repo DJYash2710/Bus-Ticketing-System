@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -50,6 +51,58 @@ class ProfileScreen extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Chip(label: Text(user.phone!)),
                     ],
+                    if (user.referralCode != null &&
+                        user.referralCode!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Your referral code',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Text(
+                                user.referralCode!,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Copy referral code',
+                            onPressed: () {
+                              Clipboard.setData(
+                                ClipboardData(text: user.referralCode!),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Referral code copied'),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.copy_rounded),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -61,9 +114,9 @@ class ProfileScreen extends ConsumerWidget {
               onTap: () => context.push(RoutePaths.profileEdit),
             ),
             _MenuTile(
-              icon: Icons.confirmation_number_outlined,
-              label: 'My Trips',
-              onTap: () => context.go(RoutePaths.bookings),
+              icon: Icons.lock_outline,
+              label: 'Change Password',
+              onTap: () => context.push(RoutePaths.changePassword),
             ),
             _MenuTile(
               icon: Icons.wallet_outlined,
@@ -75,7 +128,7 @@ class ProfileScreen extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              onTap: () {},
+              onTap: () => context.push(RoutePaths.loyaltyHistory),
             ),
             if (auth.user?.role == UserRole.admin)
               _MenuTile(

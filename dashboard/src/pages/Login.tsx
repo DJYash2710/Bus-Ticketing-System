@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bus } from 'lucide-react'
+import { Bus, Lock, Mail } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { getErrorMessage } from '../api/client'
 import { validateEmail, validatePassword } from '../lib/validation'
@@ -43,15 +43,13 @@ export function Login() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white">
-          <Bus className="h-6 w-6" />
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div className="mb-8 flex flex-col items-center text-center">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-light text-brand">
+          <Bus className="h-7 w-7" />
         </div>
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
-          <p className="text-sm text-slate-500">Admin & operator dashboard</p>
-        </div>
+        <h1 className="text-xl font-bold text-slate-900">TealTransit Operations</h1>
+        <p className="mt-1 text-sm text-slate-500">Admin & operator sign in</p>
       </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
@@ -61,43 +59,45 @@ export function Login() {
           </div>
         )}
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
-            Email
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+            Email Address
           </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            placeholder="you@company.com"
-            autoComplete="email"
-          />
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field-icon"
+              placeholder="operator@tealtransit.com"
+              autoComplete="email"
+            />
+          </div>
         </div>
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            placeholder="••••••••"
-            autoComplete="current-password"
-          />
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field-icon"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {loading ? 'Signing in...' : 'Sign in'}
+        <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
+          {loading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
-      <p className="mt-4 text-center text-xs text-slate-400">
-        Passenger accounts cannot access this dashboard.
+      <p className="mt-6 text-center text-xs text-slate-400">
+        Authorized personnel only. Secure connection.
       </p>
     </div>
   )

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../config/pricing_config.dart';
 import '../../search/models/search_result.dart';
 import '../../seats/models/seat_layout_data.dart';
 
@@ -17,7 +18,12 @@ class BookingFlowState {
     this.holdExpiresAt,
     this.fromCityName,
     this.toCityName,
+    this.fromCityId,
+    this.toCityId,
     this.travelDate,
+    this.couponCode,
+    this.couponDiscount = 0,
+    this.creditsToRedeem = 0,
   });
 
   final ScheduleSearchItem? schedule;
@@ -32,13 +38,28 @@ class BookingFlowState {
   final DateTime? holdExpiresAt;
   final String? fromCityName;
   final String? toCityName;
+  final int? fromCityId;
+  final int? toCityId;
   final String? travelDate;
+  final String? couponCode;
+  final double couponDiscount;
+  final int creditsToRedeem;
 
   double get baseFare =>
       (schedule?.basePrice ?? seatLayout?.basePrice ?? 0) *
       selectedSeats.length;
 
-  double get payableTotal => totalAmount ?? (baseFare + (taxAmount ?? 0));
+  double gstAmountFor(PricingConfig pricing) => baseFare * pricing.gstRate;
+
+  double discountTotalFor(PricingConfig pricing) =>
+      couponDiscount + (creditsToRedeem * pricing.loyaltyPointValue);
+
+  double estimatedTotalFor(PricingConfig pricing) =>
+      (baseFare + gstAmountFor(pricing) - discountTotalFor(pricing))
+          .clamp(0, double.infinity);
+
+  double commissionAmountFor(PricingConfig pricing) =>
+      baseFare * pricing.platformCommissionRate;
 
   String get seatNumbersLabel =>
       selectedSeats.map((s) => s.seatNumber).join(', ');
@@ -58,7 +79,12 @@ class BookingFlowState {
     DateTime? holdExpiresAt,
     String? fromCityName,
     String? toCityName,
+    int? fromCityId,
+    int? toCityId,
     String? travelDate,
+    String? couponCode,
+    double? couponDiscount,
+    int? creditsToRedeem,
   }) =>
       BookingFlowState(
         schedule: schedule ?? this.schedule,
@@ -73,7 +99,12 @@ class BookingFlowState {
         holdExpiresAt: holdExpiresAt ?? this.holdExpiresAt,
         fromCityName: fromCityName ?? this.fromCityName,
         toCityName: toCityName ?? this.toCityName,
+        fromCityId: fromCityId ?? this.fromCityId,
+        toCityId: toCityId ?? this.toCityId,
         travelDate: travelDate ?? this.travelDate,
+        couponCode: couponCode ?? this.couponCode,
+        couponDiscount: couponDiscount ?? this.couponDiscount,
+        creditsToRedeem: creditsToRedeem ?? this.creditsToRedeem,
       );
 }
 
@@ -90,12 +121,16 @@ class BookingFlowNotifier extends Notifier<BookingFlowState> {
     required ScheduleSearchItem schedule,
     String? fromCityName,
     String? toCityName,
+    int? fromCityId,
+    int? toCityId,
     String? travelDate,
   }) {
     state = BookingFlowState(
       schedule: schedule,
       fromCityName: fromCityName,
       toCityName: toCityName,
+      fromCityId: fromCityId,
+      toCityId: toCityId,
       travelDate: travelDate,
     );
   }
@@ -135,6 +170,12 @@ class BookingFlowNotifier extends Notifier<BookingFlowState> {
 
   void setPaymentId(int paymentId) =>
       state = state.copyWith(paymentId: paymentId);
+
+  void setCoupon({String? code, double discount = 0}) =>
+      state = state.copyWith(couponCode: code, couponDiscount: discount);
+
+  void setCreditsToRedeem(int credits) =>
+      state = state.copyWith(creditsToRedeem: credits);
 
   void reset() => state = const BookingFlowState();
 }

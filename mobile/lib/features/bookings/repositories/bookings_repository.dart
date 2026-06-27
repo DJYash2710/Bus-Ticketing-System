@@ -8,6 +8,7 @@ abstract interface class BookingsRepository {
     required String boardingPoint,
     required String droppingPoint,
     String? couponCode,
+    int? creditsToRedeem,
   });
   Future<Result<BookingItem>> getBooking(int id);
   Future<Result<List<BookingItem>>> listMyBookings();

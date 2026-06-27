@@ -9,33 +9,33 @@ type UpdateCityInput = {
     country?: string | null;
 };
 export declare function createCity(input: CreateCityInput): Promise<{
-    state: string | null;
-    id: number;
     name: string;
+    id: number;
+    state: string | null;
     country: string | null;
     createdAt: Date;
     updatedAt: Date;
 }>;
 export declare function listCities(search?: string): Promise<{
-    state: string | null;
-    id: number;
     name: string;
+    id: number;
+    state: string | null;
     country: string | null;
     createdAt: Date;
     updatedAt: Date;
 }[]>;
 export declare function getCityById(id: number): Promise<{
-    state: string | null;
-    id: number;
     name: string;
+    id: number;
+    state: string | null;
     country: string | null;
     createdAt: Date;
     updatedAt: Date;
 }>;
 export declare function updateCity(id: number, input: UpdateCityInput): Promise<{
-    state: string | null;
-    id: number;
     name: string;
+    id: number;
+    state: string | null;
     country: string | null;
     createdAt: Date;
     updatedAt: Date;

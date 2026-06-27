@@ -11,6 +11,7 @@ sealed class UserProfile with _$UserProfile {
     required String email,
     String? phone,
     @Default(0) double creditsBalance,
+    String? referralCode,
   }) = _UserProfile;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) =>

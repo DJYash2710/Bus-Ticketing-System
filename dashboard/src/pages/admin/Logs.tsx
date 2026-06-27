@@ -3,10 +3,10 @@ import { ScrollText } from 'lucide-react'
 import { getAuditLogs, getLogs } from '../../api/logs'
 import { EmptyState } from '../../components/EmptyState'
 import { getAccessToken } from '../../lib/storage'
+import { API_BASE_URL } from '../../lib/api-base-url'
 import type { AuditLogEntry, LogEntry } from '../../types'
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1'
+const API_BASE = API_BASE_URL
 
 type LogTab = 'audit' | 'system'
 
@@ -70,7 +70,7 @@ function actionTone(action: string): string {
     return 'text-emerald-400'
   }
   if (action.startsWith('PAYMENT')) return 'text-lime-400'
-  if (action.startsWith('BOOKING')) return 'text-violet-400'
+  if (action.startsWith('BOOKING')) return 'text-brand'
   if (action.startsWith('SEAT')) return 'text-amber-400'
   if (action.startsWith('LOGIN') || action === 'REGISTER' || action === 'LOGOUT') {
     return 'text-sky-400'
@@ -481,7 +481,7 @@ function AuditLogsPanel() {
                               onClick={() =>
                                 setExpandedId(isExpanded ? null : entry.id)
                               }
-                              className="text-xs text-indigo-600 hover:underline"
+                              className="text-xs text-brand hover:underline"
                             >
                               {isExpanded ? 'Hide' : 'Details'}
                             </button>

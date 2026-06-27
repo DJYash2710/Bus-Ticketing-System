@@ -21,6 +21,7 @@ class BookingsRepositoryImpl extends BaseRepository
     required String boardingPoint,
     required String droppingPoint,
     String? couponCode,
+    int? creditsToRedeem,
   }) =>
       guard(
         () => _apiService.create(
@@ -29,6 +30,7 @@ class BookingsRepositoryImpl extends BaseRepository
           boardingPoint: boardingPoint,
           droppingPoint: droppingPoint,
           couponCode: couponCode,
+          creditsToRedeem: creditsToRedeem,
         ),
       );
 

@@ -20,11 +20,11 @@ export declare function previewCoupon(code: string, userId: number, baseAmount: 
 }>;
 export declare function resolveCouponForBooking(code: string, userId: number, baseAmount: number): Promise<{
     coupon: {
+        code: string;
+        id: number;
         value: Prisma.Decimal;
         type: import(".prisma/client").$Enums.CouponType;
-        id: number;
         isActive: boolean;
-        code: string;
         createdAt: Date;
         updatedAt: Date;
         maxUsesPerUser: number | null;
@@ -36,11 +36,11 @@ export declare function resolveCouponForBooking(code: string, userId: number, ba
     discountAmount: number;
 }>;
 export declare function listCoupons(): Promise<{
+    code: string;
+    id: number;
     value: Prisma.Decimal;
     type: import(".prisma/client").$Enums.CouponType;
-    id: number;
     isActive: boolean;
-    code: string;
     createdAt: Date;
     updatedAt: Date;
     maxUsesPerUser: number | null;
@@ -50,11 +50,11 @@ export declare function listCoupons(): Promise<{
     validTo: Date | null;
 }[]>;
 export declare function createCoupon(input: CreateCouponInput): Promise<{
+    code: string;
+    id: number;
     value: Prisma.Decimal;
     type: import(".prisma/client").$Enums.CouponType;
-    id: number;
     isActive: boolean;
-    code: string;
     createdAt: Date;
     updatedAt: Date;
     maxUsesPerUser: number | null;
@@ -64,11 +64,11 @@ export declare function createCoupon(input: CreateCouponInput): Promise<{
     validTo: Date | null;
 }>;
 export declare function updateCoupon(id: number, input: UpdateCouponInput): Promise<{
+    code: string;
+    id: number;
     value: Prisma.Decimal;
     type: import(".prisma/client").$Enums.CouponType;
-    id: number;
     isActive: boolean;
-    code: string;
     createdAt: Date;
     updatedAt: Date;
     maxUsesPerUser: number | null;

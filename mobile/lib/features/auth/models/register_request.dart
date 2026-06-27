@@ -10,6 +10,7 @@ sealed class RegisterRequest with _$RegisterRequest {
     required String email,
     required String password,
     required String phone,
+    @JsonKey(includeIfNull: false) String? referralCode,
   }) = _RegisterRequest;
 
   factory RegisterRequest.fromJson(Map<String, dynamic> json) =>

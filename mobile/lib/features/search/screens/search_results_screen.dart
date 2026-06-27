@@ -10,7 +10,9 @@ import '../../bookings/providers/booking_flow_provider.dart';
 import '../models/search_result.dart';
 import '../providers/search_providers.dart';
 
-class SearchResultsScreen extends ConsumerWidget {
+enum _SortOption { priceLow, priceHigh, departureEarly, departureLate, seatsMost }
+
+class SearchResultsScreen extends ConsumerStatefulWidget {
   const SearchResultsScreen({
     required this.fromCityId,
     required this.toCityId,
@@ -23,54 +25,173 @@ class SearchResultsScreen extends ConsumerWidget {
   final String date;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchResultsScreen> createState() => _SearchResultsScreenState();
+}
+
+class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
+  _SortOption _sort = _SortOption.departureEarly;
+  String? _busTypeFilter;
+  bool _hideSoldOut = false;
+
+  List<ScheduleSearchItem> _applyFilters(List<ScheduleSearchItem> items) {
+    var filtered = items;
+    if (_hideSoldOut) {
+      filtered = filtered.where((i) => !i.isSoldOut).toList();
+    }
+    if (_busTypeFilter != null) {
+      filtered =
+          filtered.where((i) => i.busType == _busTypeFilter).toList();
+    }
+    filtered = [...filtered];
+    switch (_sort) {
+      case _SortOption.priceLow:
+        filtered.sort((a, b) => a.basePrice.compareTo(b.basePrice));
+      case _SortOption.priceHigh:
+        filtered.sort((a, b) => b.basePrice.compareTo(a.basePrice));
+      case _SortOption.departureEarly:
+        filtered.sort((a, b) => a.departureTime.compareTo(b.departureTime));
+      case _SortOption.departureLate:
+        filtered.sort((a, b) => b.departureTime.compareTo(a.departureTime));
+      case _SortOption.seatsMost:
+        filtered.sort((a, b) => b.availableSeats.compareTo(a.availableSeats));
+    }
+    return filtered;
+  }
+
+  Future<void> _openFilters(List<ScheduleSearchItem> items) async {
+    final busTypes = items.map((i) => i.busType).toSet().toList()..sort();
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Filters & Sort', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              const Text('Sort by'),
+              RadioGroup<_SortOption>(
+                groupValue: _sort,
+                onChanged: (v) {
+                  if (v != null) setModalState(() => _sort = v);
+                },
+                child: Column(
+                  children: _SortOption.values
+                      .map(
+                        (opt) => RadioListTile<_SortOption>(
+                          value: opt,
+                          title: Text(_sortLabel(opt)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const Divider(),
+              DropdownButtonFormField<String?>(
+                initialValue: _busTypeFilter,
+                decoration: const InputDecoration(labelText: 'Bus type'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('All types')),
+                  ...busTypes.map(
+                    (t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(t.replaceAll('_', ' ')),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setModalState(() => _busTypeFilter = v),
+              ),
+              SwitchListTile(
+                title: const Text('Hide sold out'),
+                value: _hideSoldOut,
+                onChanged: (v) => setModalState(() => _hideSoldOut = v),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    setState(() {});
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Apply'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _sortLabel(_SortOption opt) => switch (opt) {
+        _SortOption.priceLow => 'Price: Low to High',
+        _SortOption.priceHigh => 'Price: High to Low',
+        _SortOption.departureEarly => 'Departure: Earliest',
+        _SortOption.departureLate => 'Departure: Latest',
+        _SortOption.seatsMost => 'Most seats available',
+      };
+
+  @override
+  Widget build(BuildContext context) {
     final params = SearchQueryParams(
-      fromCityId: fromCityId,
-      toCityId: toCityId,
-      date: date,
+      fromCityId: widget.fromCityId,
+      toCityId: widget.toCityId,
+      date: widget.date,
     );
     final results = ref.watch(searchResultsProvider(params));
 
     return Scaffold(
-      appBar: const AppHeader(),
+      appBar: const AppHeader(showBack: true),
       body: results.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Search failed: $e')),
-        data: (data) => Column(
-          children: [
-            _SearchHeader(result: data, onEdit: () => context.pop()),
-            Expanded(
-              child: data.schedules.isEmpty
-                  ? const Center(child: Text('No buses found for this route'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-                      itemCount: data.schedules.length,
-                      itemBuilder: (context, i) => _BusCard(
-                        item: data.schedules[i],
-                        onTap: () {
+        data: (data) {
+          final schedules = _applyFilters(data.schedules);
+          return Column(
+            children: [
+              _SearchHeader(result: data, onEdit: () => context.pop()),
+              Expanded(
+                child: schedules.isEmpty
+                    ? const Center(child: Text('No buses match your filters'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                        itemCount: schedules.length,
+                        itemBuilder: (context, i) => _BusCard(
+                          item: schedules[i],
+                          onTap: () {
                           ref.read(bookingFlowProvider.notifier).setScheduleContext(
-                                schedule: data.schedules[i],
+                                schedule: schedules[i],
                                 fromCityName: data.fromCity.name,
                                 toCityName: data.toCity.name,
+                                fromCityId: data.fromCity.id,
+                                toCityId: data.toCity.id,
                                 travelDate: data.date,
                               );
-                          context.push(
-                            RoutePaths.seats
-                                .replaceFirst(':scheduleId',
-                                    '${data.schedules[i].scheduleId}'),
-                          );
-                        },
+                            context.push(
+                              RoutePaths.seats.replaceFirst(
+                                ':scheduleId',
+                                '${schedules[i].scheduleId}',
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
-        backgroundColor: AppColors.textPrimary,
-        icon: const Icon(Icons.tune_rounded),
-        label: const Text('Filters & Sort'),
+      floatingActionButton: results.maybeWhen(
+        data: (data) => FloatingActionButton.extended(
+          onPressed: () => _openFilters(data.schedules),
+          backgroundColor: AppColors.textPrimary,
+          icon: const Icon(Icons.tune_rounded),
+          label: const Text('Filters & Sort'),
+        ),
+        orElse: () => null,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );

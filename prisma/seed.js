@@ -155,6 +155,62 @@ async function main() {
         cities[c.name] = city;
     }
     console.log(`✅ Cities (${cityData.length}): ${Object.keys(cities).join(", ")}`);
+    // ── 4b. Bus stops (2–3 per city) ─────────────────────────────────────────
+    const stopTemplates = {
+        Mumbai: [
+            { name: "Virwani Bus Stop", locality: "Malad" },
+            { name: "Omkareshwar Temple Bus Stop", locality: "Borivali (East)" },
+            { name: "Dadar TT Bus Stop", locality: "Dadar" },
+        ],
+        Pune: [
+            { name: "Swargate Bus Stand", locality: "Swargate" },
+            { name: "Hinjewadi Phase 1", locality: "Hinjewadi" },
+            { name: "Katraj Bus Depot", locality: "Katraj" },
+        ],
+        Nashik: [
+            { name: "CBS Bus Stand", locality: "Central" },
+            { name: "Trimbakeshwar Road Stop", locality: "Panchavati" },
+        ],
+        Nagpur: [
+            { name: "Ganeshpeth Bus Stand", locality: "Ganeshpeth" },
+            { name: "Sitabuldi Stop", locality: "Sitabuldi" },
+        ],
+        Aurangabad: [
+            { name: "Central Bus Stand", locality: "CBS" },
+            { name: "Cidco Stop", locality: "Cidco" },
+        ],
+        Surat: [
+            { name: "Surat Central", locality: "Athwa" },
+            { name: "Varachha Stop", locality: "Varachha" },
+        ],
+        Ahmedabad: [
+            { name: "Geeta Mandir", locality: "Central" },
+            { name: "Bopal Stop", locality: "Bopal" },
+            { name: "Maninagar Depot", locality: "Maninagar" },
+        ],
+        Vadodara: [
+            { name: "Central Bus Station", locality: "Sayajigunj" },
+            { name: "Alkapuri Stop", locality: "Alkapuri" },
+        ],
+    };
+    const busStops = {};
+    for (const [cityName, templates] of Object.entries(stopTemplates)) {
+        const city = cities[cityName];
+        if (!city)
+            continue;
+        busStops[cityName] = [];
+        for (const t of templates) {
+            const existing = await prisma.busStop.findFirst({
+                where: { name: t.name, locality: t.locality, cityId: city.id },
+            });
+            const stop = existing ??
+                (await prisma.busStop.create({
+                    data: { name: t.name, locality: t.locality, cityId: city.id },
+                }));
+            busStops[cityName].push(stop);
+        }
+    }
+    console.log(`✅ Bus stops seeded for ${Object.keys(busStops).length} cities`);
     // ── 5. Buses ──────────────────────────────────────────────────────────────
     const busData = [
         {
@@ -187,6 +243,134 @@ async function main() {
             capacity: 40,
             type: BusType.AC,
             amenities: "AC,WiFi,Snacks,USB Ports",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22GH1111",
+            name: "Konkan King",
+            capacity: 44,
+            type: BusType.AC,
+            amenities: "AC,WiFi",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22GH2222",
+            name: "Sahyadri Express",
+            capacity: 40,
+            type: BusType.SEMI_SLEEPER,
+            amenities: "AC,Blanket",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22GH3333",
+            name: "Western Star",
+            capacity: 36,
+            type: BusType.SLEEPER,
+            amenities: "AC,Water",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22GH4444",
+            name: "Vidarbha Express",
+            capacity: 40,
+            type: BusType.SEATER,
+            amenities: "AC",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "GJ22IJ1111",
+            name: "Sabarmati Cruiser",
+            capacity: 40,
+            type: BusType.AC,
+            amenities: "AC,WiFi,Charging",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "GJ22IJ2222",
+            name: "Diamond Express",
+            capacity: 40,
+            type: BusType.SEMI_SLEEPER,
+            amenities: "AC",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22KL1111",
+            name: "Nashik Flyer",
+            capacity: 40,
+            type: BusType.SEATER,
+            amenities: "AC,WiFi",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22KL2222",
+            name: "Aurangabad Express",
+            capacity: 40,
+            type: BusType.AC,
+            amenities: "AC,Snacks",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22KL3333",
+            name: "Pune Metro Link",
+            capacity: 44,
+            type: BusType.SEATER,
+            amenities: "AC,USB",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22KL4444",
+            name: "Mumbai Premium",
+            capacity: 36,
+            type: BusType.SLEEPER,
+            amenities: "AC,Blanket,WiFi",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "GJ22MN1111",
+            name: "Surat Shuttle",
+            capacity: 40,
+            type: BusType.SEATER,
+            amenities: "AC",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "GJ22MN2222",
+            name: "Ahmedabad Express",
+            capacity: 40,
+            type: BusType.AC,
+            amenities: "AC,WiFi",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "GJ22MN3333",
+            name: "Vadodara Connect",
+            capacity: 40,
+            type: BusType.SEMI_SLEEPER,
+            amenities: "AC,Charging",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22OP1111",
+            name: "Deccan Queen",
+            capacity: 40,
+            type: BusType.AC,
+            amenities: "AC,WiFi,Snacks",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22OP2222",
+            name: "Maharashtra Express",
+            capacity: 44,
+            type: BusType.SEATER,
+            amenities: "AC",
+            operatorId: busOp.id,
+        },
+        {
+            registrationNo: "MH22OP3333",
+            name: "Night Rider",
+            capacity: 36,
+            type: BusType.SLEEPER,
+            amenities: "AC,Blanket",
             operatorId: busOp.id,
         },
     ];
@@ -257,11 +441,15 @@ async function main() {
             where: { code: r.code },
             update: {
                 estimatedDurationMinutes: r.durationMin,
+                startBusStopId: busStops[r.from]?.[0]?.id ?? null,
+                endBusStopId: busStops[r.to]?.[0]?.id ?? null,
             },
             create: {
                 code: r.code,
                 fromCityId: fromCity.id,
                 toCityId: toCity.id,
+                startBusStopId: busStops[r.from]?.[0]?.id,
+                endBusStopId: busStops[r.to]?.[0]?.id,
                 distanceKm: r.distanceKm,
                 durationMin: r.durationMin,
                 estimatedDurationMinutes: r.durationMin,

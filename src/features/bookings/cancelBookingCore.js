@@ -49,7 +49,6 @@ export async function cancelBookingInTx(tx, booking, options) {
     let paymentCancelled = false;
     const bookingPaymentUpdate = {};
     if (booking.paymentStatus === PaymentStatus.SUCCESS) {
-        bookingPaymentUpdate.paymentStatus = PaymentStatus.REFUNDED;
         const refundPending = await tx.payment.updateMany({
             where: { bookingId: booking.id, status: PaymentStatus.SUCCESS },
             data: { status: PaymentStatus.REFUND_PENDING },
@@ -60,30 +59,40 @@ export async function cancelBookingInTx(tx, booking, options) {
             });
             if (payment) {
                 paymentId = payment.id;
-                await simulateMockRefund(tx, payment.id);
-                refunded = true;
+                const didRefund = await simulateMockRefund(tx, payment.id);
+                refunded = didRefund;
+                if (didRefund) {
+                    bookingPaymentUpdate.paymentStatus = PaymentStatus.REFUNDED;
+                }
             }
-        }
-        const earnEvent = await tx.loyaltyEvent.findFirst({
-            where: { bookingId: booking.id, type: "EARN_BOOKING" },
-        });
-        if (earnEvent && earnEvent.credits > 0) {
-            await tx.user.update({
-                where: { id: booking.userId },
-                data: { creditsBalance: { decrement: earnEvent.credits } },
+            const earnEvent = await tx.loyaltyEvent.findFirst({
+                where: { bookingId: booking.id, type: "EARN_BOOKING" },
             });
-            await tx.loyaltyEvent.create({
-                data: {
-                    userId: booking.userId,
+            const existingReversal = await tx.loyaltyEvent.findFirst({
+                where: {
                     bookingId: booking.id,
                     type: "ADJUSTMENT",
-                    credits: -earnEvent.credits,
-                    description: `Reversed ${earnEvent.credits} credits after booking #${booking.id} cancellation`,
+                    credits: { lt: 0 },
                 },
             });
+            if (earnEvent && earnEvent.credits > 0 && !existingReversal) {
+                await tx.user.update({
+                    where: { id: booking.userId },
+                    data: { creditsBalance: { decrement: earnEvent.credits } },
+                });
+                await tx.loyaltyEvent.create({
+                    data: {
+                        userId: booking.userId,
+                        bookingId: booking.id,
+                        type: "ADJUSTMENT",
+                        credits: -earnEvent.credits,
+                        description: `Reversed ${earnEvent.credits} credits after booking #${booking.id} cancellation`,
+                    },
+                });
+            }
         }
     }
-    else if (booking.status === BookingStatus.PENDING) {
+    else {
         const cancelledPayment = await tx.payment.updateMany({
             where: { bookingId: booking.id, status: PaymentStatus.PENDING },
             data: { status: PaymentStatus.CANCELLED },
@@ -96,7 +105,9 @@ export async function cancelBookingInTx(tx, booking, options) {
             paymentId = payment?.id ?? null;
             bookingPaymentUpdate.paymentStatus = PaymentStatus.CANCELLED;
         }
-        await reverseBookingIncentives(tx, booking.id, booking.userId);
+        if (booking.status === BookingStatus.PENDING) {
+            await reverseBookingIncentives(tx, booking.id, booking.userId);
+        }
     }
     if (bookingPaymentUpdate.paymentStatus) {
         await tx.booking.update({
@@ -105,17 +116,28 @@ export async function cancelBookingInTx(tx, booking, options) {
         });
     }
     const seatIds = booking.seats.map((item) => item.seatId);
+    let releasedSeatIds = [];
     if (seatIds.length > 0) {
-        await tx.seat.updateMany({
+        const releasableSeats = await tx.seat.findMany({
             where: {
                 id: { in: seatIds },
                 status: { in: seatStatusToRelease },
             },
-            data: {
-                status: SeatStatus.AVAILABLE,
-                heldUntil: null,
-            },
+            select: { id: true },
         });
+        releasedSeatIds = releasableSeats.map((seat) => seat.id);
+        if (releasedSeatIds.length > 0) {
+            await tx.seat.updateMany({
+                where: {
+                    id: { in: releasedSeatIds },
+                    status: { in: seatStatusToRelease },
+                },
+                data: {
+                    status: SeatStatus.AVAILABLE,
+                    heldUntil: null,
+                },
+            });
+        }
     }
     return {
         changed: true,
@@ -123,7 +145,7 @@ export async function cancelBookingInTx(tx, booking, options) {
         scheduleId: booking.scheduleId,
         userId: booking.userId,
         previousStatus: booking.status,
-        seatIds,
+        seatIds: releasedSeatIds,
         paymentId,
         refunded,
         paymentCancelled,

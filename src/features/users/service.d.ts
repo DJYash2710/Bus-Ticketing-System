@@ -7,10 +7,10 @@ type ChangePasswordInput = {
     newPassword: string;
 };
 export declare function getUserProfile(userId: number): Promise<{
-    id: number;
     name: string;
-    role: import(".prisma/client").$Enums.UserRole;
     email: string;
+    id: number;
+    role: import(".prisma/client").$Enums.UserRole;
     isActive: boolean;
     phone: string | null;
     referralCode: string | null;
@@ -19,10 +19,10 @@ export declare function getUserProfile(userId: number): Promise<{
     updatedAt: Date;
 }>;
 export declare function updateUserProfile(userId: number, input: UpdateProfileInput): Promise<{
-    id: number;
     name: string;
-    role: import(".prisma/client").$Enums.UserRole;
     email: string;
+    id: number;
+    role: import(".prisma/client").$Enums.UserRole;
     phone: string | null;
     referralCode: string | null;
     creditsBalance: number;

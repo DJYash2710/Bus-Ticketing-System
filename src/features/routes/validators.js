@@ -5,6 +5,8 @@ export const createRouteSchema = {
         code: Joi.string().min(2).max(50).required(),
         fromCityId: Joi.number().integer().required(),
         toCityId: Joi.number().integer().required(),
+        startBusStopId: Joi.number().integer().positive().required(),
+        endBusStopId: Joi.number().integer().positive().required(),
         distanceKm: Joi.number().integer().min(1).optional(),
         durationMin: Joi.number().integer().min(1).optional(),
     }),

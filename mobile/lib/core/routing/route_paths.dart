@@ -20,6 +20,8 @@ abstract class RoutePaths {
 
   static const String profile = '/profile';
   static const String profileEdit = '/profile/edit';
+  static const String changePassword = '/profile/change-password';
+  static const String loyaltyHistory = '/profile/loyalty-history';
 
   static const String admin = '/admin';
   static const String adminAuditLogs = '/admin/audit-logs';

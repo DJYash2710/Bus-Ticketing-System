@@ -1,7 +1,7 @@
 import { PaymentStatus } from "@prisma/client";
 /** Simulates mock-provider refund completion (no external integration). */
 export async function simulateMockRefund(tx, paymentId) {
-    await tx.payment.update({
+    const result = await tx.payment.updateMany({
         where: {
             id: paymentId,
             status: PaymentStatus.REFUND_PENDING,
@@ -12,5 +12,6 @@ export async function simulateMockRefund(tx, paymentId) {
             rawResponse: JSON.stringify({ note: "Mock refund processed" }),
         },
     });
+    return result.count > 0;
 }
 //# sourceMappingURL=refund.js.map

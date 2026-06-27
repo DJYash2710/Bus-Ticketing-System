@@ -35,7 +35,7 @@ export function authMiddleware(
   try {
     const payload = verifyAccessToken(token); // token is now definitely string
     req.user = {
-      id: payload.sub,
+      id: Number(payload.sub),
       role: payload.role,
       busOperatorId: payload.busOperatorId ?? null,
     };

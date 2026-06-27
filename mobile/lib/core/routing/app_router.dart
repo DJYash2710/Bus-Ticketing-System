@@ -12,6 +12,8 @@ import '../../features/bookings/screens/review_booking_screen.dart';
 import '../../features/payments/screens/payment_screen.dart';
 import '../../features/payments/screens/payment_success_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/change_password_screen.dart';
+import '../../features/profile/screens/loyalty_history_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/search/screens/search_results_screen.dart';
 import '../../features/search/screens/search_screen.dart';
@@ -110,6 +112,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.profileEdit,
         name: 'profile-edit',
         builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.changePassword,
+        name: 'change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.loyaltyHistory,
+        name: 'loyalty-history',
+        builder: (context, state) => const LoyaltyHistoryScreen(),
       ),
       GoRoute(
         path: RoutePaths.admin,

@@ -33,6 +33,7 @@ export async function createOperator(input) {
         throw new ApiError(409, "User with this email or phone already exists");
     }
     const passwordHash = await bcrypt.hash(operatorUser.password, SALT_ROUNDS);
+    const referralCode = `OPR${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     return prisma.$transaction(async (tx) => {
         const busOperator = await tx.busOperator.create({
             data: {
@@ -49,6 +50,7 @@ export async function createOperator(input) {
                 passwordHash,
                 role: UserRole.OPERATOR,
                 busOperatorId: busOperator.id,
+                referralCode,
             },
             select: operatorUserSelect,
         });

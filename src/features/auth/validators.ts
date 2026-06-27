@@ -5,9 +5,16 @@ export const registerSchema = {
   body: Joi.object({
     name: Joi.string().min(2).max(100).required(),
     email: Joi.string().email().required(),
-    phone: Joi.string().min(8).max(20).optional(),
+    phone: Joi.string().pattern(/^\d{10}$/).optional().messages({
+      'string.pattern.base': 'Phone must be exactly 10 digits',
+    }),
     password: Joi.string().min(8).max(128).required(),
-    referralCode: Joi.string().optional(),
+    referralCode: Joi.string()
+      .trim()
+      .uppercase()
+      .allow(null, '')
+      .empty('')
+      .optional(),
   }),
 };
 

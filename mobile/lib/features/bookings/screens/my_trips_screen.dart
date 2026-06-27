@@ -9,11 +9,26 @@ import '../../../shared/widgets/app_header.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../models/booking_item.dart';
 import '../providers/bookings_providers.dart';
-class MyTripsScreen extends ConsumerWidget {
+
+/// Refreshes trip list whenever the user opens My Trips.
+class MyTripsScreen extends ConsumerStatefulWidget {
   const MyTripsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyTripsScreen> createState() => _MyTripsScreenState();
+}
+
+class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myBookingsProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final bookings = ref.watch(myBookingsProvider);
 
     return DefaultTabController(
@@ -48,15 +63,11 @@ class MyTripsScreen extends ConsumerWidget {
                       empty: 'No upcoming trips',
                     ),
                     _BookingList(
-                      items: items
-                          .where((b) =>
-                              !b.isUpcoming && b.status != 'CANCELLED')
-                          .toList(),
+                      items: items.where((b) => b.isPast).toList(),
                       empty: 'No past trips',
                     ),
                     _BookingList(
-                      items:
-                          items.where((b) => b.status == 'CANCELLED').toList(),
+                      items: items.where((b) => b.isCancelled).toList(),
                       empty: 'No cancelled trips',
                     ),
                   ],
@@ -154,8 +165,7 @@ class _BookingCard extends StatelessWidget {
               children: [
                 Text('PNR: ${item.pnr}'),
                 const Spacer(),
-                if (item.status == 'PENDING' &&
-                    item.paymentStatus != 'SUCCESS')
+                if (item.status == 'PENDING' && item.paymentStatus != 'SUCCESS')
                   TextButton(
                     onPressed: () => context.push(
                       RoutePaths.payment

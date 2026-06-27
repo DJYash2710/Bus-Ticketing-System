@@ -21,13 +21,14 @@ export async function createCity(input) {
     });
 }
 export async function listCities(search) {
-    const where = search
-        ? {
-            name: { contains: search, mode: "insensitive" },
-        }
-        : null;
     return prisma.city.findMany({
-        ...(where ? { where } : {}),
+        ...(search
+            ? {
+                where: {
+                    name: { contains: search },
+                },
+            }
+            : {}),
         orderBy: { name: "asc" },
     });
 }

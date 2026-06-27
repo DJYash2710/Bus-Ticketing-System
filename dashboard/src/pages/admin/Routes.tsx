@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Map, Pencil, Plus, Trash2 } from 'lucide-react'
 import { listCities } from '../../api/cities'
+import { formatBusStopLabel, listBusStops } from '../../api/busStops'
 import { createRoute, deleteRoute, listRoutes, updateRoute } from '../../api/routes'
 import { getErrorMessage } from '../../api/client'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -21,12 +22,18 @@ export function Routes() {
   const [code, setCode] = useState('')
   const [fromCityId, setFromCityId] = useState<number | ''>('')
   const [toCityId, setToCityId] = useState<number | ''>('')
+  const [startBusStopId, setStartBusStopId] = useState<number | ''>('')
+  const [endBusStopId, setEndBusStopId] = useState<number | ''>('')
   const [distanceKm, setDistanceKm] = useState<number | ''>('')
   const [durationMin, setDurationMin] = useState<number | ''>('')
   const [deleteTarget, setDeleteTarget] = useState<Route | null>(null)
 
   const routesQuery = useQuery({ queryKey: ['routes'], queryFn: listRoutes })
   const citiesQuery = useQuery({ queryKey: ['cities'], queryFn: listCities })
+  const stopsQuery = useQuery({ queryKey: ['bus-stops'], queryFn: () => listBusStops() })
+
+  const fromStops = (stopsQuery.data ?? []).filter((s) => s.cityId === fromCityId)
+  const toStops = (stopsQuery.data ?? []).filter((s) => s.cityId === toCityId)
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -34,11 +41,16 @@ export function Routes() {
         code,
         fromCityId: Number(fromCityId),
         toCityId: Number(toCityId),
+        startBusStopId: Number(startBusStopId),
+        endBusStopId: Number(endBusStopId),
         distanceKm: distanceKm !== '' ? Number(distanceKm) : undefined,
         durationMin: durationMin !== '' ? Number(durationMin) : undefined,
       }
       const validation = validateRouteForm(payload)
       if (!validation.ok) throw new Error(validation.message)
+      if (!editing && (startBusStopId === '' || endBusStopId === '')) {
+        throw new Error('Start and end bus stops are required')
+      }
 
       if (editing) {
         return updateRoute(editing.id, {
@@ -91,11 +103,13 @@ export function Routes() {
             setCode('')
             setFromCityId('')
             setToCityId('')
+            setStartBusStopId('')
+            setEndBusStopId('')
             setDistanceKm('')
             setDurationMin('')
             setModalOpen(true)
           }}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
+          className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
         >
           <Plus className="h-4 w-4" />
           Add route
@@ -167,7 +181,10 @@ export function Routes() {
                   />
                   <select
                     value={fromCityId}
-                    onChange={(e) => setFromCityId(Number(e.target.value))}
+                    onChange={(e) => {
+                      setFromCityId(Number(e.target.value))
+                      setStartBusStopId('')
+                    }}
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     required
                   >
@@ -179,8 +196,24 @@ export function Routes() {
                     ))}
                   </select>
                   <select
+                    value={startBusStopId}
+                    onChange={(e) => setStartBusStopId(Number(e.target.value))}
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    required
+                  >
+                    <option value="">Start bus stop</option>
+                    {fromStops.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {formatBusStopLabel(s)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
                     value={toCityId}
-                    onChange={(e) => setToCityId(Number(e.target.value))}
+                    onChange={(e) => {
+                      setToCityId(Number(e.target.value))
+                      setEndBusStopId('')
+                    }}
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     required
                   >
@@ -188,6 +221,19 @@ export function Routes() {
                     {citiesQuery.data?.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={endBusStopId}
+                    onChange={(e) => setEndBusStopId(Number(e.target.value))}
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    required
+                  >
+                    <option value="">End bus stop</option>
+                    {toStops.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {formatBusStopLabel(s)}
                       </option>
                     ))}
                   </select>
@@ -211,7 +257,7 @@ export function Routes() {
                 <button type="button" onClick={() => setModalOpen(false)} className="rounded-lg border px-4 py-2 text-sm">
                   Cancel
                 </button>
-                <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white">
+                <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm text-white">
                   Save
                 </button>
               </div>

@@ -7,7 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_header.dart';
 import '../../../shared/widgets/primary_button.dart';
-import '../models/city.dart';
+import '../../../shared/widgets/city_autocomplete_field.dart';
 import '../providers/search_providers.dart';
 
 class SearchScreen extends ConsumerWidget {
@@ -16,14 +16,11 @@ class SearchScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final form = ref.watch(searchFormProvider);
-    final citiesAsync = ref.watch(citiesProvider);
+    final citiesApi = ref.watch(citiesApiServiceProvider);
 
     return Scaffold(
       appBar: const AppHeader(),
-      body: citiesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load cities: $e')),
-        data: (cities) => ListView(
+      body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Text('Where are you going?', style: Theme.of(context).textTheme.headlineMedium),
@@ -33,11 +30,11 @@ class SearchScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _CityField(
+                    CityAutocompleteField(
                       label: 'From',
-                      value: form.fromCity,
-                      cities: cities,
                       icon: Icons.radio_button_unchecked,
+                      api: citiesApi,
+                      value: form.fromCity,
                       onChanged: (c) =>
                           ref.read(searchFormProvider.notifier).setFromCity(c),
                     ),
@@ -52,11 +49,11 @@ class SearchScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    _CityField(
+                    CityAutocompleteField(
                       label: 'To City',
-                      value: form.toCity,
-                      cities: cities,
                       icon: Icons.location_on_outlined,
+                      api: citiesApi,
+                      value: form.toCity,
                       onChanged: (c) =>
                           ref.read(searchFormProvider.notifier).setToCity(c),
                     ),
@@ -131,38 +128,6 @@ class SearchScreen extends ConsumerWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CityField extends StatelessWidget {
-  const _CityField({
-    required this.label,
-    required this.value,
-    required this.cities,
-    required this.icon,
-    required this.onChanged,
-  });
-
-  final String label;
-  final City? value;
-  final List<City> cities;
-  final IconData icon;
-  final ValueChanged<City?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<City>(
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
-      items: cities
-          .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
-          .toList(),
-      onChanged: onChanged,
     );
   }
 }

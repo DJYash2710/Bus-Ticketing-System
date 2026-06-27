@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardList } from 'lucide-react'
+import { Calendar, ClipboardList, Clock, Filter } from 'lucide-react'
 import {
   cancelBooking,
   getAdminBookings,
@@ -11,12 +11,39 @@ import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DataTable } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
-import { StatusBadge, bookingStatusVariant } from '../components/StatusBadge'
+import { PageHeader } from '../components/PageHeader'
+import {
+  StatusBadge,
+  bookingStatusVariant,
+  paymentStatusVariant,
+} from '../components/StatusBadge'
+import { UserAvatar } from '../components/UserAvatar'
 import { useToast } from '../hooks/useToast'
 import type { Booking, BookingStatus } from '../types'
 
 function formatMoney(v: string | number) {
   return `₹${Number(v).toLocaleString('en-IN')}`
+}
+
+function formatPnr(id: number) {
+  return `TT${id}`
+}
+
+function formatScheduleTime(bookedAt: string, schedule?: Booking['schedule']) {
+  if (schedule?.departureTime) {
+    return new Date(schedule.departureTime).toLocaleString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+  return new Date(bookedAt).toLocaleString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export function Bookings() {
@@ -85,6 +112,9 @@ export function Bookings() {
 
   const loading = isAdmin ? adminQuery.isLoading : operatorQuery.isLoading
   const isError = isAdmin ? adminQuery.isError : operatorQuery.isError
+  const totalCount = isAdmin
+    ? (adminQuery.data?.pagination.total ?? bookings.length)
+    : bookings.length
 
   if (isError) {
     return (
@@ -96,41 +126,50 @@ export function Bookings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">My Bookings</h1>
-        <p className="text-sm text-slate-500">
-          {isAdmin ? 'All platform bookings' : 'Bookings on your fleet (read-only)'}
-        </p>
-      </div>
+      <PageHeader
+        title="My Bookings"
+        subtitle="Manage and track all passenger reservations across your routes."
+      />
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Filter by date"
-        />
-        <input
-          type="search"
-          value={scheduleFilter}
-          onChange={(e) => setScheduleFilter(e.target.value)}
-          placeholder="Search by route or schedule..."
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
-        {isAdmin && (
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as BookingStatus | '')}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="EXPIRED">Expired</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-        )}
+      <div className="card p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[160px] flex-1">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="input-field pl-10"
+              aria-label="Filter by date"
+            />
+          </div>
+          <div className="relative min-w-[200px] flex-[2]">
+            <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={scheduleFilter}
+              onChange={(e) => setScheduleFilter(e.target.value)}
+              placeholder="All schedules"
+              className="input-field pl-10"
+            />
+          </div>
+          {isAdmin && (
+            <div className="relative min-w-[160px] flex-1">
+              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as BookingStatus | '')}
+                className="input-field pl-10"
+              >
+                <option value="">All statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="EXPIRED">Expired</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -146,82 +185,128 @@ export function Bookings() {
           <DataTable
             data={bookings}
             keyExtractor={(b) => b.id}
+            footer={
+              <div className="flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Showing {bookings.length} of {totalCount} bookings
+                </span>
+                {isAdmin && adminQuery.data && adminQuery.data.pagination.totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => p - 1)}
+                      className="btn-secondary px-3 py-1 disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <span className="rounded-lg bg-brand px-3 py-1 text-xs font-semibold text-white">
+                      {page}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page >= adminQuery.data.pagination.totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                      className="btn-secondary px-3 py-1 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
             columns={[
-              { key: 'id', header: 'ID', render: (b) => `#${b.id}` },
+              {
+                key: 'pnr',
+                header: 'PNR',
+                render: (b) => (
+                  <span className="font-semibold text-brand">{formatPnr(b.id)}</span>
+                ),
+              },
               {
                 key: 'passenger',
-                header: 'Passenger',
-                render: (b) => b.user?.name ?? `User #${b.userId}`,
+                header: 'User',
+                render: (b) => {
+                  const name = b.user?.name ?? `User #${b.userId}`
+                  return (
+                    <div className="flex items-center gap-2">
+                      <UserAvatar name={name} size="sm" />
+                      <span>{name}</span>
+                    </div>
+                  )
+                },
               },
               {
                 key: 'route',
                 header: 'Route',
                 render: (b) =>
-                  b.schedule?.route
-                    ? `${b.schedule.route.fromCity?.name} → ${b.schedule.route.toCity?.name}`
-                    : `Schedule #${b.scheduleId}`,
+                  b.schedule?.route ? (
+                    <span className="font-medium">
+                      {b.schedule.route.fromCity?.name} → {b.schedule.route.toCity?.name}
+                    </span>
+                  ) : (
+                    `Schedule #${b.scheduleId}`
+                  ),
+              },
+              {
+                key: 'time',
+                header: 'Schedule Time',
+                render: (b) => formatScheduleTime(b.bookedAt, b.schedule),
               },
               {
                 key: 'seats',
                 header: 'Seats',
                 render: (b) =>
-                  b.seats?.map((s) => s.seat.seatNumber).join(', ') ?? '—',
+                  b.seats?.map((s) => s.seat.seatNumber).join(', ') || '—',
               },
               {
                 key: 'amount',
-                header: 'Total',
-                render: (b) => formatMoney(b.totalAmount),
+                header: 'Amount',
+                render: (b) => <span className="font-medium">{formatMoney(b.totalAmount)}</span>,
+              },
+              {
+                key: 'payment',
+                header: 'Payment',
+                render: (b) => (
+                  <StatusBadge
+                    label={b.paymentStatus}
+                    variant={paymentStatusVariant(b.paymentStatus)}
+                  />
+                ),
               },
               {
                 key: 'status',
                 header: 'Status',
                 render: (b) => (
-                  <StatusBadge label={b.status} variant={bookingStatusVariant(b.status)} />
+                  <StatusBadge
+                    label={b.status}
+                    variant={bookingStatusVariant(b.status)}
+                    style="outline"
+                  />
                 ),
               },
               ...(isAdmin
                 ? [
                     {
                       key: 'actions',
-                      header: '',
+                      header: 'Actions',
                       render: (b: Booking) =>
                         b.status !== 'CANCELLED' ? (
                           <button
                             type="button"
                             onClick={() => setCancelTarget(b)}
-                            className="text-sm text-red-600 hover:underline"
+                            className="text-sm font-medium text-red-600 hover:underline"
                           >
                             Cancel
                           </button>
-                        ) : null,
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        ),
                     },
                   ]
                 : []),
             ]}
           />
-          {isAdmin && adminQuery.data && adminQuery.data.pagination.totalPages > 1 && (
-            <div className="flex justify-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="rounded border px-3 py-1 text-sm disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="px-2 py-1 text-sm text-slate-500">
-                Page {page} of {adminQuery.data.pagination.totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= adminQuery.data.pagination.totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded border px-3 py-1 text-sm disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          )}
         </>
       )}
 
@@ -229,7 +314,7 @@ export function Bookings() {
         <ConfirmDialog
           open={!!cancelTarget}
           title="Cancel booking?"
-          message={`Cancel booking #${cancelTarget?.id}? Seats will be released.`}
+          message={`Cancel booking ${cancelTarget ? formatPnr(cancelTarget.id) : ''}? Seats will be released.`}
           confirmLabel="Cancel booking"
           loading={cancelMutation.isPending}
           onConfirm={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}

@@ -53,7 +53,7 @@ export async function createBooking(input, audit) {
             .join(", ")}`);
     }
     const baseAmount = Number(schedule.basePrice) * seats.length;
-    const taxAmount = 0;
+    const taxAmount = Math.round(baseAmount * env.gstRate * 100) / 100;
     let couponDiscount = 0;
     let creditsDiscount = 0;
     let couponId;
@@ -109,6 +109,8 @@ export async function createBooking(input, audit) {
                 status: BookingStatus.PENDING,
                 paymentStatus: PaymentStatus.PENDING,
                 holdExpiresAt,
+                boardingPoint: input.boardingPoint,
+                droppingPoint: input.droppingPoint,
             },
             include: {
                 schedule: {

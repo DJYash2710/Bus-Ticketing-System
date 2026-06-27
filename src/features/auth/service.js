@@ -38,8 +38,16 @@ async function createRefreshTokenRow(userId, jti, userAgent, ipAddress, db = pri
     });
 }
 export async function registerUser(input, client) {
+    const phone = input.phone?.trim() || undefined;
+    const appliedReferralCode = input.referralCode?.trim().toUpperCase() || undefined;
+    const duplicateConditions = [
+        { email: input.email },
+    ];
+    if (phone) {
+        duplicateConditions.push({ phone });
+    }
     const existing = await prisma.user.findFirst({
-        where: { OR: [{ email: input.email }, { phone: input.phone || "" }] },
+        where: { OR: duplicateConditions },
     });
     if (existing) {
         throw new ApiError(409, "User with this email or phone already exists");
@@ -48,9 +56,9 @@ export async function registerUser(input, client) {
     const referralCode = `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const result = await prisma.$transaction(async (tx) => {
         let referredById;
-        if (input.referralCode) {
+        if (appliedReferralCode) {
             const referrer = await tx.user.findFirst({
-                where: { referralCode: input.referralCode },
+                where: { referralCode: appliedReferralCode },
             });
             if (!referrer) {
                 throw new ApiError(400, "Invalid referral code");
@@ -61,7 +69,7 @@ export async function registerUser(input, client) {
             data: {
                 name: input.name,
                 email: input.email,
-                phone: input.phone ?? null,
+                phone: phone ?? null,
                 passwordHash,
                 role: UserRole.USER,
                 referralCode,

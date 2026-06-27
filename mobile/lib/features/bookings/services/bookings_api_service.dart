@@ -11,6 +11,7 @@ class BookingsApiService extends BaseApiService {
     required String boardingPoint,
     required String droppingPoint,
     String? couponCode,
+    int? creditsToRedeem,
   }) =>
       post(
         ApiConstants.bookings,
@@ -19,7 +20,9 @@ class BookingsApiService extends BaseApiService {
           'seatNumbers': seatNumbers,
           'boardingPoint': boardingPoint,
           'droppingPoint': droppingPoint,
-          if (couponCode != null) 'couponCode': couponCode,
+          'couponCode': ?couponCode,
+          if (creditsToRedeem != null && creditsToRedeem > 0)
+            'creditsToRedeem': creditsToRedeem,
         },
         parser: (json) => BookingItem.fromJson(json as Map<String, dynamic>),
       );

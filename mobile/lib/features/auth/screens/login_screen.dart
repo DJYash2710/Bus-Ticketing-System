@@ -6,6 +6,7 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../core/utils/password_validator.dart';
 import '../models/login_request.dart';
 import '../providers/auth_providers.dart';
 
@@ -113,8 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: () =>
                                 setState(() => _obscure = !_obscure),
                           ),
-                          validator: (v) =>
-                              v == null || v.length < 6 ? 'Min 6 characters' : null,
+                          validator: validatePassword,
                         ),
                         Align(
                           alignment: Alignment.centerRight,

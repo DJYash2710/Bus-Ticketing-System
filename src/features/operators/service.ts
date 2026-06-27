@@ -77,6 +77,7 @@ export async function createOperator(input: CreateOperatorInput) {
   }
 
   const passwordHash = await bcrypt.hash(operatorUser.password, SALT_ROUNDS);
+  const referralCode = `OPR${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
   return prisma.$transaction(async (tx) => {
     const busOperator = await tx.busOperator.create({
@@ -95,6 +96,7 @@ export async function createOperator(input: CreateOperatorInput) {
         passwordHash,
         role: UserRole.OPERATOR,
         busOperatorId: busOperator.id,
+        referralCode,
       },
       select: operatorUserSelect,
     });

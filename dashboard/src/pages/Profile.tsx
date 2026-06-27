@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import { changePassword, getProfile, updateProfile } from '../api/users'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { PageHeader } from '../components/PageHeader'
+import { UserAvatar } from '../components/UserAvatar'
 import { useToast } from '../hooks/useToast'
 import {
   validateChangePassword,
@@ -11,7 +13,7 @@ import {
 } from '../lib/validation'
 
 export function Profile() {
-  const { refreshProfile } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const { showToast } = useToast()
 
   const [name, setName] = useState('')
@@ -68,12 +70,17 @@ export function Profile() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Profile</h1>
-        <p className="text-sm text-slate-500">Update your account details</p>
+      <div className="card flex items-center gap-4 p-6">
+        {user && <UserAvatar name={user.name} />}
+        <div>
+          <PageHeader
+            title="Profile"
+            subtitle="Manage your account settings and security."
+          />
+        </div>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="card p-6">
         <h2 className="font-medium text-slate-900">Personal info</h2>
         <form
           className="mt-4 space-y-4"
@@ -95,7 +102,7 @@ export function Profile() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="input-field"
             />
           </div>
           <div>
@@ -103,21 +110,21 @@ export function Profile() {
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="input-field"
               placeholder="Optional"
             />
           </div>
           <button
             type="submit"
             disabled={profileMutation.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primary disabled:opacity-50"
           >
             Save changes
           </button>
         </form>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="card p-6">
         <h2 className="font-medium text-slate-900">Change password</h2>
         <form
           className="mt-4 space-y-4"
@@ -132,7 +139,7 @@ export function Profile() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="input-field"
             />
           </div>
           <div>
@@ -141,13 +148,13 @@ export function Profile() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="input-field"
             />
           </div>
           <button
             type="submit"
             disabled={passwordMutation.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primary disabled:opacity-50"
           >
             Update password
           </button>

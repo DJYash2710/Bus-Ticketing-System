@@ -25,10 +25,10 @@ export declare function createOperator(input: CreateOperatorInput): Promise<{
         updatedAt: Date;
     };
     user: {
-        id: number;
         name: string;
-        role: import(".prisma/client").$Enums.UserRole;
         email: string;
+        id: number;
+        role: import(".prisma/client").$Enums.UserRole;
         phone: string | null;
     };
 }>;

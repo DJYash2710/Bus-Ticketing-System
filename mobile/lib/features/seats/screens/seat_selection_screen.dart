@@ -40,11 +40,19 @@ class SeatSelectionScreen extends ConsumerWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  child: _SeatGrid(
-                    seats: layout.seats,
-                    selectedIds: selectedIds,
-                    onTap: (seat) =>
-                        ref.read(bookingFlowProvider.notifier).toggleSeat(seat),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final seatSize =
+                          (constraints.maxWidth / 8).clamp(32.0, 44.0);
+                      return _SeatGrid(
+                        seats: layout.seats,
+                        selectedIds: selectedIds,
+                        seatSize: seatSize,
+                        onTap: (seat) => ref
+                            .read(bookingFlowProvider.notifier)
+                            .toggleSeat(seat),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -157,19 +165,22 @@ class _SeatGrid extends StatelessWidget {
     required this.seats,
     required this.selectedIds,
     required this.onTap,
+    required this.seatSize,
   });
 
   final List<SeatMapItem> seats;
   final Set<int> selectedIds;
   final ValueChanged<SeatMapItem> onTap;
+  final double seatSize;
 
   @override
   Widget build(BuildContext context) {
-    final maxRow = seats.map((s) => s.row ?? 0).fold(0, (a, b) => a > b ? a : b);
-    final rows = <int?, List<SeatMapItem>>{};
+    final rows = <int, List<SeatMapItem>>{};
     for (final seat in seats) {
-      rows.putIfAbsent(seat.row, () => []).add(seat);
+      rows.putIfAbsent(seat.row ?? 0, () => []).add(seat);
     }
+
+    final sortedRows = rows.keys.toList()..sort();
 
     return Card(
       child: Padding(
@@ -183,10 +194,10 @@ class _SeatGrid extends StatelessWidget {
             const Text('LOWER DECK',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 12),
-            ...List.generate(maxRow, (i) {
-              final rowNum = i + 1;
+            ...sortedRows.map((rowNum) {
               final rowSeats = rows[rowNum] ?? [];
               rowSeats.sort((a, b) => (a.col ?? 0).compareTo(b.col ?? 0));
+              final displayRow = rowNum + 1;
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -199,6 +210,7 @@ class _SeatGrid extends StatelessWidget {
                             .map((s) => _SeatCell(
                                   seat: s,
                                   selected: selectedIds.contains(s.id),
+                                  size: seatSize,
                                   onTap: () => onTap(s),
                                 ))
                             .toList(),
@@ -206,7 +218,7 @@ class _SeatGrid extends StatelessWidget {
                     ),
                     SizedBox(
                       width: 28,
-                      child: Text('$rowNum',
+                      child: Text('$displayRow',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 12)),
                     ),
@@ -217,6 +229,7 @@ class _SeatGrid extends StatelessWidget {
                             .map((s) => _SeatCell(
                                   seat: s,
                                   selected: selectedIds.contains(s.id),
+                                  size: seatSize,
                                   onTap: () => onTap(s),
                                 ))
                             .toList(),
@@ -238,11 +251,13 @@ class _SeatCell extends StatelessWidget {
     required this.seat,
     required this.selected,
     required this.onTap,
+    required this.size,
   });
 
   final SeatMapItem seat;
   final bool selected;
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -264,8 +279,8 @@ class _SeatCell extends StatelessWidget {
       child: InkWell(
         onTap: disabled ? null : onTap,
         child: Container(
-          width: 36,
-          height: 36,
+          width: size,
+          height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: bg,

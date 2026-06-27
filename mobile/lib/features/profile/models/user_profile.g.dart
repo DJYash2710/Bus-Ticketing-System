@@ -12,6 +12,7 @@ _UserProfile _$UserProfileFromJson(Map<String, dynamic> json) => _UserProfile(
   email: json['email'] as String,
   phone: json['phone'] as String?,
   creditsBalance: (json['creditsBalance'] as num?)?.toDouble() ?? 0,
+  referralCode: json['referralCode'] as String?,
 );
 
 Map<String, dynamic> _$UserProfileToJson(_UserProfile instance) =>
@@ -21,4 +22,5 @@ Map<String, dynamic> _$UserProfileToJson(_UserProfile instance) =>
       'email': instance.email,
       'phone': instance.phone,
       'creditsBalance': instance.creditsBalance,
+      'referralCode': instance.referralCode,
     };

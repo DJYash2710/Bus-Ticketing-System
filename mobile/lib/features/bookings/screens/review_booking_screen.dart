@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/error/result.dart';
+import '../../config/providers/pricing_providers.dart';
 import '../../../core/routing/route_paths.dart';
+import '../../../core/error/result.dart';
+import '../../../shared/widgets/price_breakdown.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/providers/core_providers.dart';
 import '../../../shared/widgets/app_header.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../profile/providers/profile_providers.dart';
+import '../../search/services/bus_stops_api_service.dart';
+import '../services/coupons_api_service.dart';
 import '../providers/booking_flow_provider.dart';
 import '../providers/bookings_providers.dart';
+import '../../seats/providers/seats_providers.dart';
 
 class ReviewBookingScreen extends ConsumerStatefulWidget {
   const ReviewBookingScreen({super.key});
@@ -20,23 +27,98 @@ class ReviewBookingScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
-  final _boarding = TextEditingController();
-  final _dropping = TextEditingController();
+  final _couponController = TextEditingController();
+  String? _boarding;
+  String? _dropping;
+  List<BusStop> _boardingStops = [];
+  List<BusStop> _droppingStops = [];
   bool _loading = false;
+  bool _loadingStops = true;
+  bool _applyingCoupon = false;
+  int _creditsToRedeem = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStops());
+  }
 
   @override
   void dispose() {
-    _boarding.dispose();
-    _dropping.dispose();
+    _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadStops() async {
+    final flow = ref.read(bookingFlowProvider);
+    final fromId = flow.fromCityId;
+    final toId = flow.toCityId;
+    if (fromId == null || toId == null) {
+      setState(() => _loadingStops = false);
+      return;
+    }
+    try {
+      final api = BusStopsApiService(ref.read(dioProvider));
+      final results = await Future.wait([
+        api.listByCity(fromId),
+        api.listByCity(toId),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _boardingStops = results[0];
+        _droppingStops = results[1];
+        _boarding = _boardingStops.isNotEmpty ? _boardingStops.first.label : flow.fromCityName;
+        _dropping = _droppingStops.isNotEmpty ? _droppingStops.first.label : flow.toCityName;
+        _loadingStops = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _boarding = flow.fromCityName;
+          _dropping = flow.toCityName;
+          _loadingStops = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+    setState(() => _applyingCoupon = true);
+    try {
+      final flow = ref.read(bookingFlowProvider);
+      final preview = await CouponsApiService(ref.read(dioProvider)).validate(
+        code: code,
+        baseAmount: flow.baseFare,
+      );
+      ref.read(bookingFlowProvider.notifier).setCoupon(
+            code: preview.code,
+            discount: preview.discountAmount,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Coupon applied: -${formatCurrency(preview.discountAmount)}')),
+        );
+      }
+    } catch (e) {
+      ref.read(bookingFlowProvider.notifier).setCoupon(code: null, discount: 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid coupon: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _applyingCoupon = false);
+    }
   }
 
   Future<void> _confirm() async {
     final flow = ref.read(bookingFlowProvider);
-    final schedule = flow.schedule ?? flow.seatLayout;
-    if (schedule == null) return;
+    final boarding = _boarding?.trim() ?? '';
+    final dropping = _dropping?.trim() ?? '';
 
-    if (_boarding.text.trim().isEmpty || _dropping.text.trim().isEmpty) {
+    if (boarding.isEmpty || dropping.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Boarding and dropping points are required')),
       );
@@ -49,20 +131,24 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
       final booking = await ref.read(bookingsRepositoryProvider).createBooking(
             scheduleId: scheduleId,
             seatNumbers: flow.selectedSeats.map((s) => s.seatNumber).toList(),
-            boardingPoint: _boarding.text.trim(),
-            droppingPoint: _dropping.text.trim(),
+            boardingPoint: boarding,
+            droppingPoint: dropping,
+            couponCode: flow.couponCode,
+            creditsToRedeem: _creditsToRedeem > 0 ? _creditsToRedeem : null,
           );
       switch (booking) {
         case Success(:final value):
           ref.read(bookingFlowProvider.notifier)
-            ..setBoardingPoint(_boarding.text.trim())
-            ..setDroppingPoint(_dropping.text.trim())
+            ..setBoardingPoint(boarding)
+            ..setDroppingPoint(dropping)
             ..setBookingResult(
               bookingId: value.id,
               totalAmount: value.totalAmount,
-              taxAmount: 0,
+              taxAmount: value.taxAmount,
               holdExpiresAt: value.holdExpiresAt,
             );
+          ref.invalidate(myBookingsProvider);
+          ref.invalidate(seatLayoutProvider(scheduleId));
           if (mounted) {
             context.push(
               RoutePaths.payment.replaceFirst(':bookingId', '${value.id}'),
@@ -89,14 +175,27 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
   @override
   Widget build(BuildContext context) {
     final flow = ref.watch(bookingFlowProvider);
+    final profile = ref.watch(userProfileProvider);
+    final pricing = ref.watch(pricingConfigProvider);
     final schedule = flow.schedule;
     final layout = flow.seatLayout;
     final base = flow.baseFare;
-    const tax = 50.0;
-    final total = base + tax;
+    final tax = flow.gstAmountFor(pricing);
+    final breakdown = PriceBreakdownData.fromParts(
+      baseAmount: base,
+      taxAmount: tax,
+      pricing: pricing,
+      couponDiscount: flow.couponDiscount,
+      loyaltyDiscount: _creditsToRedeem * pricing.loyaltyPointValue,
+      seatCount: flow.selectedSeats.length,
+    );
+    final maxCredits = profile.maybeWhen(
+      data: (u) => u.creditsBalance,
+      orElse: () => 0,
+    );
 
     return Scaffold(
-      appBar: const AppHeader(showBack: true, title: 'TealTransit'),
+      appBar: const AppHeader(showBack: true, title: 'Review Booking'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -114,24 +213,6 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
                     '${flow.fromCityName ?? layout?.fromCityName} → ${flow.toCityName ?? layout?.toCityName}',
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _TimeCol(
-                        label: 'Departure',
-                        time: formatTime(
-                          schedule?.departureTime ?? layout!.departureTime,
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                      _TimeCol(
-                        label: 'Arrival',
-                        time: formatTime(
-                          schedule?.arrivalTime ?? layout!.arrivalTime,
-                        ),
-                        alignEnd: true,
-                      ),
-                    ],
-                  ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: Chip(
@@ -144,51 +225,87 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Boarding & Dropping Details',
-              style: Theme.of(context).textTheme.titleMedium),
+          Text('Boarding & Dropping', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          TextField(
-            controller: _boarding,
-            decoration: const InputDecoration(labelText: 'Boarding Point'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _dropping,
-            decoration: const InputDecoration(labelText: 'Dropping Point'),
-          ),
-          const SizedBox(height: 20),
-          Text('Fare Details', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          _FareRow(
-            label: 'Base Fare (${flow.selectedSeats.length} Seats)',
-            value: formatCurrency(base),
-          ),
-          _FareRow(label: 'Taxes & Fees', value: formatCurrency(tax)),
-          const Divider(),
-          _FareRow(
-            label: 'Total Amount',
-            value: formatCurrency(total),
-            bold: true,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.navActiveBg,
-              borderRadius: BorderRadius.circular(12),
+          if (_loadingStops)
+            const LinearProgressIndicator()
+          else ...[
+            DropdownButtonFormField<String>(
+              initialValue: _boarding,
+              decoration: const InputDecoration(labelText: 'Boarding Point'),
+              items: (_boardingStops.isNotEmpty
+                      ? _boardingStops.map((s) => s.label)
+                      : [_boarding ?? ''])
+                  .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+                  .toList(),
+              onChanged: (v) => setState(() => _boarding = v),
             ),
-            child: const Row(
-              children: [
-                Icon(Icons.timer_outlined, color: AppColors.primary),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Hold tight! Seats reserved for 10 minutes while you complete your payment.',
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _dropping,
+              decoration: const InputDecoration(labelText: 'Dropping Point'),
+              items: (_droppingStops.isNotEmpty
+                      ? _droppingStops.map((s) => s.label)
+                      : [_dropping ?? ''])
+                  .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+                  .toList(),
+              onChanged: (v) => setState(() => _dropping = v),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Text('Coupons & Loyalty', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _couponController,
+                  decoration: const InputDecoration(
+                    labelText: 'Coupon code',
+                    hintText: 'SAVE10',
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _applyingCoupon ? null : _applyCoupon,
+                child: _applyingCoupon
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Apply'),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Redeem loyalty points (max $maxCredits)'),
+              ),
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: '0'),
+                  onChanged: (v) {
+                    final parsed = int.tryParse(v) ?? 0;
+                    setState(() {
+                      _creditsToRedeem = parsed.clamp(0, maxCredits).toInt();
+                    });
+                    ref.read(bookingFlowProvider.notifier)
+                        .setCreditsToRedeem(_creditsToRedeem);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text('Price Distribution', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          PriceBreakdownRows(data: breakdown, pricing: pricing),
         ],
       ),
       bottomNavigationBar: Padding(
@@ -199,70 +316,6 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
           isLoading: _loading,
           onPressed: _confirm,
         ),
-      ),
-    );
-  }
-}
-
-class _TimeCol extends StatelessWidget {
-  const _TimeCol({
-    required this.label,
-    required this.time,
-    this.alignEnd = false,
-  });
-
-  final String label;
-  final String time;
-  final bool alignEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        Text(time, style: const TextStyle(fontWeight: FontWeight.w700)),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
-    );
-  }
-}
-
-class _FareRow extends StatelessWidget {
-  const _FareRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
-                color: bold ? AppColors.primary : null,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: bold ? AppColors.primary : null,
-              fontSize: bold ? 18 : 14,
-            ),
-          ),
-        ],
       ),
     );
   }

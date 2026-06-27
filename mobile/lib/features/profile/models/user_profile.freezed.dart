@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$UserProfile {
 
- int get id; String get name; String get email; String? get phone; double get creditsBalance;
+ int get id; String get name; String get email; String? get phone; double get creditsBalance; String? get referralCode;
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $UserProfileCopyWith<UserProfile> get copyWith => _$UserProfileCopyWithImpl<User
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.creditsBalance, creditsBalance) || other.creditsBalance == creditsBalance));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.creditsBalance, creditsBalance) || other.creditsBalance == creditsBalance)&&(identical(other.referralCode, referralCode) || other.referralCode == referralCode));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,email,phone,creditsBalance);
+int get hashCode => Object.hash(runtimeType,id,name,email,phone,creditsBalance,referralCode);
 
 @override
 String toString() {
-  return 'UserProfile(id: $id, name: $name, email: $email, phone: $phone, creditsBalance: $creditsBalance)';
+  return 'UserProfile(id: $id, name: $name, email: $email, phone: $phone, creditsBalance: $creditsBalance, referralCode: $referralCode)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $UserProfileCopyWith<$Res>  {
   factory $UserProfileCopyWith(UserProfile value, $Res Function(UserProfile) _then) = _$UserProfileCopyWithImpl;
 @useResult
 $Res call({
- int id, String name, String email, String? phone, double creditsBalance
+ int id, String name, String email, String? phone, double creditsBalance, String? referralCode
 });
 
 
@@ -65,14 +65,15 @@ class _$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? creditsBalance = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? creditsBalance = null,Object? referralCode = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,phone: freezed == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
 as String?,creditsBalance: null == creditsBalance ? _self.creditsBalance : creditsBalance // ignore: cast_nullable_to_non_nullable
-as double,
+as double,referralCode: freezed == referralCode ? _self.referralCode : referralCode // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -154,10 +155,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  double creditsBalance)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  double creditsBalance,  String? referralCode)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance);case _:
+return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance,_that.referralCode);case _:
   return orElse();
 
 }
@@ -175,10 +176,10 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  double creditsBalance)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  double creditsBalance,  String? referralCode)  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile():
-return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance);}
+return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance,_that.referralCode);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -192,10 +193,10 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String name,  String email,  String? phone,  double creditsBalance)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String name,  String email,  String? phone,  double creditsBalance,  String? referralCode)?  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance);case _:
+return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance,_that.referralCode);case _:
   return null;
 
 }
@@ -207,7 +208,7 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.creditsBalance
 @JsonSerializable()
 
 class _UserProfile implements UserProfile {
-  const _UserProfile({required this.id, required this.name, required this.email, this.phone, this.creditsBalance = 0});
+  const _UserProfile({required this.id, required this.name, required this.email, this.phone, this.creditsBalance = 0, this.referralCode});
   factory _UserProfile.fromJson(Map<String, dynamic> json) => _$UserProfileFromJson(json);
 
 @override final  int id;
@@ -215,6 +216,7 @@ class _UserProfile implements UserProfile {
 @override final  String email;
 @override final  String? phone;
 @override@JsonKey() final  double creditsBalance;
+@override final  String? referralCode;
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
@@ -229,16 +231,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.creditsBalance, creditsBalance) || other.creditsBalance == creditsBalance));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.creditsBalance, creditsBalance) || other.creditsBalance == creditsBalance)&&(identical(other.referralCode, referralCode) || other.referralCode == referralCode));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,email,phone,creditsBalance);
+int get hashCode => Object.hash(runtimeType,id,name,email,phone,creditsBalance,referralCode);
 
 @override
 String toString() {
-  return 'UserProfile(id: $id, name: $name, email: $email, phone: $phone, creditsBalance: $creditsBalance)';
+  return 'UserProfile(id: $id, name: $name, email: $email, phone: $phone, creditsBalance: $creditsBalance, referralCode: $referralCode)';
 }
 
 
@@ -249,7 +251,7 @@ abstract mixin class _$UserProfileCopyWith<$Res> implements $UserProfileCopyWith
   factory _$UserProfileCopyWith(_UserProfile value, $Res Function(_UserProfile) _then) = __$UserProfileCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String name, String email, String? phone, double creditsBalance
+ int id, String name, String email, String? phone, double creditsBalance, String? referralCode
 });
 
 
@@ -266,14 +268,15 @@ class __$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? creditsBalance = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? creditsBalance = null,Object? referralCode = freezed,}) {
   return _then(_UserProfile(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,phone: freezed == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
 as String?,creditsBalance: null == creditsBalance ? _self.creditsBalance : creditsBalance // ignore: cast_nullable_to_non_nullable
-as double,
+as double,referralCode: freezed == referralCode ? _self.referralCode : referralCode // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

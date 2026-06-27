@@ -88,8 +88,19 @@ export async function registerUser(
   input: RegisterInput,
   client: ClientMeta,
 ) {
+  const phone = input.phone?.trim() || undefined;
+  const appliedReferralCode =
+    input.referralCode?.trim().toUpperCase() || undefined;
+
+  const duplicateConditions: Array<{ email: string } | { phone: string }> = [
+    { email: input.email },
+  ];
+  if (phone) {
+    duplicateConditions.push({ phone });
+  }
+
   const existing = await prisma.user.findFirst({
-    where: { OR: [{ email: input.email }, { phone: input.phone || "" }] },
+    where: { OR: duplicateConditions },
   });
 
   if (existing) {
@@ -103,9 +114,9 @@ export async function registerUser(
   const result = await prisma.$transaction(async (tx) => {
     let referredById: number | undefined;
 
-    if (input.referralCode) {
+    if (appliedReferralCode) {
       const referrer = await tx.user.findFirst({
-        where: { referralCode: input.referralCode },
+        where: { referralCode: appliedReferralCode },
       });
 
       if (!referrer) {
@@ -119,7 +130,7 @@ export async function registerUser(
       data: {
         name: input.name,
         email: input.email,
-        phone: input.phone ?? null,
+        phone: phone ?? null,
         passwordHash,
         role: UserRole.USER,
         referralCode,

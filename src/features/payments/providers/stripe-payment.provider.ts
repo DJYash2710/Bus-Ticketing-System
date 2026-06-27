@@ -8,6 +8,8 @@ import {
   type CreateProviderPaymentResult,
   type PaymentProvider,
   type ProviderPaymentStatus,
+  type RefundPaymentInput,
+  type RefundPaymentResult,
   type RetrieveProviderPaymentResult,
 } from './payment-provider.types.js';
 
@@ -71,7 +73,33 @@ export class StripePaymentProvider implements PaymentProvider {
     return {
       providerRef: paymentIntent.id,
       status: mapPaymentIntentStatus(paymentIntent.status),
+      stripeStatus: paymentIntent.status,
       rawResponse: JSON.stringify(paymentIntent),
+    };
+  }
+
+  async getClientSecret(providerRef: string): Promise<string | null> {
+    const stripe = getStripeClient();
+    const paymentIntent = await stripe.paymentIntents.retrieve(providerRef);
+    return paymentIntent.client_secret;
+  }
+
+  async refundPayment(input: RefundPaymentInput): Promise<RefundPaymentResult> {
+    const stripe = getStripeClient();
+
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: input.paymentIntentId,
+        metadata: input.reason ? { reason: input.reason } : undefined,
+      },
+      {
+        idempotencyKey: input.idempotencyKey,
+      },
+    );
+
+    return {
+      refundId: refund.id,
+      rawResponse: JSON.stringify(refund),
     };
   }
 

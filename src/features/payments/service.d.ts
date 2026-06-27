@@ -1,8 +1,8 @@
 import type { AuditContext } from "../../core/audit/requestContext.js";
 export declare function initiatePayment(bookingId: number, userId: number, audit?: AuditContext): Promise<{
+    status: import(".prisma/client").$Enums.PaymentStatus;
     id: number;
     amount: import("@prisma/client/runtime/library").Decimal;
-    status: import(".prisma/client").$Enums.PaymentStatus;
     createdAt: Date;
     updatedAt: Date;
     bookingId: number;
@@ -13,9 +13,9 @@ export declare function initiatePayment(bookingId: number, userId: number, audit
     refundedAt: Date | null;
 }>;
 export declare function confirmPayment(paymentId: number, userId: number, audit?: AuditContext): Promise<{
+    status: import(".prisma/client").$Enums.PaymentStatus;
     id: number;
     amount: import("@prisma/client/runtime/library").Decimal;
-    status: import(".prisma/client").$Enums.PaymentStatus;
     createdAt: Date;
     updatedAt: Date;
     bookingId: number;
@@ -26,9 +26,9 @@ export declare function confirmPayment(paymentId: number, userId: number, audit?
     refundedAt: Date | null;
 }>;
 export declare function getPaymentByBookingId(bookingId: number, userId: number): Promise<{
+    status: import(".prisma/client").$Enums.PaymentStatus;
     id: number;
     amount: import("@prisma/client/runtime/library").Decimal;
-    status: import(".prisma/client").$Enums.PaymentStatus;
     createdAt: Date;
     updatedAt: Date;
     bookingId: number;

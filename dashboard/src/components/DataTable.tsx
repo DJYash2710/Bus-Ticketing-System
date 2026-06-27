@@ -13,6 +13,7 @@ interface DataTableProps<T> {
   keyExtractor: (row: T) => string | number
   loading?: boolean
   emptyMessage?: string
+  footer?: ReactNode
 }
 
 export function DataTable<T>({
@@ -21,33 +22,30 @@ export function DataTable<T>({
   keyExtractor,
   loading,
   emptyMessage = 'No records found',
+  footer,
 }: DataTableProps<T>) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        Loading...
-      </div>
+      <div className="card p-8 text-center text-sm text-slate-500">Loading...</div>
     )
   }
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        {emptyMessage}
-      </div>
+      <div className="card p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
-            <tr>
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/80">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-left font-medium text-slate-600 ${col.className ?? ''}`}
+                  className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${col.className ?? ''}`}
                 >
                   {col.header}
                 </th>
@@ -56,9 +54,9 @@ export function DataTable<T>({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {data.map((row) => (
-              <tr key={keyExtractor(row)} className="hover:bg-slate-50/50">
+              <tr key={keyExtractor(row)} className="transition hover:bg-slate-50/60">
                 {columns.map((col) => (
-                  <td key={col.key} className={`px-4 py-3 text-slate-700 ${col.className ?? ''}`}>
+                  <td key={col.key} className={`px-4 py-3.5 text-slate-700 ${col.className ?? ''}`}>
                     {col.render(row)}
                   </td>
                 ))}
@@ -67,6 +65,9 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+      {footer && (
+        <div className="border-t border-slate-200 bg-slate-50/50 px-4 py-3">{footer}</div>
+      )}
     </div>
   )
 }

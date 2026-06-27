@@ -29,26 +29,28 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
     schedule: Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -60,9 +62,9 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -71,10 +73,10 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;
@@ -91,26 +93,28 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
     schedules: (Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -122,9 +126,9 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -133,10 +137,10 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;
@@ -156,26 +160,28 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
     schedule: (Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -187,9 +193,9 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -198,10 +204,10 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;
@@ -218,26 +224,28 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
     schedules: (Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -249,9 +257,9 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -260,10 +268,10 @@ export declare function createSchedule(input: CreateScheduleInput, caller: AuthU
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;
@@ -290,26 +298,28 @@ export declare function listSchedules(filters: {
 }, caller: AuthUser): Promise<(Omit<{
     route: {
         fromCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
         toCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
     } & {
-        id: number;
         code: string;
+        id: number;
         fromCityId: number;
         toCityId: number;
+        startBusStopId: number | null;
+        endBusStopId: number | null;
         distanceKm: number | null;
         durationMin: number | null;
         createdAt: Date;
@@ -321,9 +331,9 @@ export declare function listSchedules(filters: {
         bookings: number;
     };
     bus: {
-        type: import(".prisma/client").$Enums.BusType;
-        id: number;
         name: string;
+        id: number;
+        type: import(".prisma/client").$Enums.BusType;
         operatorId: number | null;
         registrationNo: string;
         capacity: number;
@@ -332,10 +342,10 @@ export declare function listSchedules(filters: {
         amenities: string | null;
     };
 } & {
-    color: string | null;
-    id: number;
-    basePrice: Prisma.Decimal;
     status: import(".prisma/client").$Enums.ScheduleStatus;
+    id: number;
+    color: string | null;
+    basePrice: Prisma.Decimal;
     departureTime: Date;
     busId: number;
     routeId: number;
@@ -354,26 +364,28 @@ export declare function getScheduleById(id: number, caller: AuthUser): Promise<{
     seatsCount: number;
     route: {
         fromCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
         toCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
     } & {
-        id: number;
         code: string;
+        id: number;
         fromCityId: number;
         toCityId: number;
+        startBusStopId: number | null;
+        endBusStopId: number | null;
         distanceKm: number | null;
         durationMin: number | null;
         createdAt: Date;
@@ -381,21 +393,21 @@ export declare function getScheduleById(id: number, caller: AuthUser): Promise<{
         estimatedDurationMinutes: number | null;
     };
     seats: {
-        id: number;
+        row: number | null;
         status: import(".prisma/client").$Enums.SeatStatus;
+        id: number;
         scheduleId: number;
         createdAt: Date;
         updatedAt: Date;
         seatNumber: string;
-        row: number | null;
         col: number | null;
         deck: string | null;
         heldUntil: Date | null;
     }[];
     bus: {
-        type: import(".prisma/client").$Enums.BusType;
-        id: number;
         name: string;
+        id: number;
+        type: import(".prisma/client").$Enums.BusType;
         operatorId: number | null;
         registrationNo: string;
         capacity: number;
@@ -403,10 +415,10 @@ export declare function getScheduleById(id: number, caller: AuthUser): Promise<{
         updatedAt: Date;
         amenities: string | null;
     };
-    color: string | null;
-    id: number;
-    basePrice: Prisma.Decimal;
     status: import(".prisma/client").$Enums.ScheduleStatus;
+    id: number;
+    color: string | null;
+    basePrice: Prisma.Decimal;
     departureTime: Date;
     busId: number;
     routeId: number;
@@ -420,26 +432,28 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
     schedule: Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -451,9 +465,9 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -462,10 +476,10 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;
@@ -486,26 +500,28 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
     schedule: Omit<{
         route: {
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
         } & {
-            id: number;
             code: string;
+            id: number;
             fromCityId: number;
             toCityId: number;
+            startBusStopId: number | null;
+            endBusStopId: number | null;
             distanceKm: number | null;
             durationMin: number | null;
             createdAt: Date;
@@ -517,9 +533,9 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
             bookings: number;
         };
         bus: {
-            type: import(".prisma/client").$Enums.BusType;
-            id: number;
             name: string;
+            id: number;
+            type: import(".prisma/client").$Enums.BusType;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
@@ -528,10 +544,10 @@ export declare function updateSchedule(id: number, input: UpdateScheduleInput, c
             amenities: string | null;
         };
     } & {
-        color: string | null;
-        id: number;
-        basePrice: Prisma.Decimal;
         status: import(".prisma/client").$Enums.ScheduleStatus;
+        id: number;
+        color: string | null;
+        basePrice: Prisma.Decimal;
         departureTime: Date;
         busId: number;
         routeId: number;

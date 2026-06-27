@@ -28,6 +28,7 @@ const allNavItems: NavItem[] = [
   { label: 'Seat Layout', path: '/seats', icon: Armchair, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'My Bookings', path: '/bookings', icon: ClipboardList, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'Profile', path: '/profile', icon: User, roles: ['ADMIN', 'OPERATOR'] },
+  { label: 'Bus Stops', path: '/bus-stops', icon: MapPin, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'Cities', path: '/admin/cities', icon: MapPin, roles: ['ADMIN'] },
   { label: 'Routes', path: '/admin/routes', icon: Map, roles: ['ADMIN'] },
   { label: 'Coupons', path: '/admin/coupons', icon: Gift, roles: ['ADMIN'] },
@@ -37,4 +38,21 @@ const allNavItems: NavItem[] = [
 
 export function getNavItemsForRole(role: UserRole): NavItem[] {
   return allNavItems.filter((item) => item.roles.includes(role))
+}
+
+export interface NavSection {
+  label: string
+  items: NavItem[]
+}
+
+export function getNavSectionsForRole(role: UserRole): NavSection[] {
+  const items = getNavItemsForRole(role)
+  const operations = items.filter((item) => !item.path.startsWith('/admin'))
+  const administration = items.filter((item) => item.path.startsWith('/admin'))
+
+  const sections: NavSection[] = [{ label: 'Operations', items: operations }]
+  if (administration.length > 0) {
+    sections.push({ label: 'Administration', items: administration })
+  }
+  return sections
 }

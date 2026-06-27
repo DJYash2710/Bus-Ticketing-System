@@ -478,11 +478,8 @@ export async function updateSchedule(id, input, caller, audit) {
         include: scheduleInclude,
     });
     const auditCtx = audit ?? { actorId: caller.id, actorRole: caller.role };
-    const action = input.status === ScheduleStatus.CANCELLED
-        ? AuditAction.SCHEDULE_CANCELLED
-        : AuditAction.SCHEDULE_UPDATED;
     auditLogFrom(auditCtx, {
-        action,
+        action: AuditAction.SCHEDULE_UPDATED,
         entityType: AuditEntityType.SCHEDULE,
         entityId: id,
         metadata: {

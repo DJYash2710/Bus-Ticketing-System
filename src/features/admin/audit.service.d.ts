@@ -10,6 +10,7 @@ export type ListAuditLogsInput = {
 };
 export declare function listAuditLogs(input: ListAuditLogsInput): Promise<{
     logs: {
+        userAgent: string | null;
         id: number;
         action: string;
         entityType: string;
@@ -19,7 +20,6 @@ export declare function listAuditLogs(input: ListAuditLogsInput): Promise<{
         entityId: number | null;
         metadata: Prisma.JsonValue | null;
         ipAddress: string | null;
-        userAgent: string | null;
     }[];
     pagination: {
         page: number;
@@ -29,6 +29,7 @@ export declare function listAuditLogs(input: ListAuditLogsInput): Promise<{
     };
 }>;
 export declare function getAuditLogById(id: number): Promise<{
+    userAgent: string | null;
     id: number;
     action: string;
     entityType: string;
@@ -38,6 +39,5 @@ export declare function getAuditLogById(id: number): Promise<{
     entityId: number | null;
     metadata: Prisma.JsonValue | null;
     ipAddress: string | null;
-    userAgent: string | null;
 }>;
 //# sourceMappingURL=audit.service.d.ts.map

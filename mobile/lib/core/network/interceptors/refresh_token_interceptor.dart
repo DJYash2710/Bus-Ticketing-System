@@ -71,7 +71,14 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
       return handler.resolve(retryResponse);
     } catch (e, st) {
       appLogger.e('Token refresh failed', error: e, stackTrace: st);
-      await _storage.clearTokens();
+      final keepSession = e is DioException &&
+          (e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.sendTimeout);
+      if (!keepSession) {
+        await _storage.clearTokens();
+      }
       return handler.next(err);
     } finally {
       _isRefreshing = false;

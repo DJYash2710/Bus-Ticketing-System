@@ -6,13 +6,13 @@ export declare function getLoyaltySummary(userId: number): Promise<{
 } | null>;
 export declare function getLoyaltyHistory(userId: number): Promise<({
     booking: {
-        id: number;
         status: import(".prisma/client").$Enums.BookingStatus;
+        id: number;
         totalAmount: import("@prisma/client/runtime/library").Decimal;
     } | null;
 } & {
-    type: import(".prisma/client").$Enums.LoyaltyEventType;
     id: number;
+    type: import(".prisma/client").$Enums.LoyaltyEventType;
     description: string | null;
     createdAt: Date;
     userId: number;

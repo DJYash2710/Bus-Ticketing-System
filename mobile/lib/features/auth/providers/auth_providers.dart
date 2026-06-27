@@ -32,24 +32,15 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> restoreSession() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     final result = await _repository.restoreSession();
-    switch (result) {
-      case Success():
-        final userResult = await _repository.getCurrentUser();
-        state = switch (userResult) {
-          Success(:final value) =>
-            AuthState(user: value, isLoading: false),
-          Error(:final failure) => AuthState(
-              isLoading: false,
-              errorMessage: failure.toString(),
-            ),
-        };
-      case Error():
-        state = const AuthState(isLoading: false);
-    }
+    state = switch (result) {
+      Success(:final value) when value != null =>
+        AuthState(user: value, isLoading: false),
+      Success() || Error() => const AuthState(isLoading: false),
+    };
   }
 
   Future<bool> login(LoginRequest request) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, errorMessage: null, user: null);
     final result = await _repository.login(request);
     return switch (result) {
       Success(:final value) => () {
@@ -57,7 +48,7 @@ class AuthNotifier extends Notifier<AuthState> {
           return true;
         }(),
       Error(:final failure) => () {
-          state = state.copyWith(
+          state = AuthState(
             isLoading: false,
             errorMessage: failure.toString(),
           );
@@ -67,7 +58,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<bool> register(RegisterRequest request) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, errorMessage: null, user: null);
     final result = await _repository.register(request);
     return switch (result) {
       Success(:final value) => () {
@@ -75,7 +66,7 @@ class AuthNotifier extends Notifier<AuthState> {
           return true;
         }(),
       Error(:final failure) => () {
-          state = state.copyWith(
+          state = AuthState(
             isLoading: false,
             errorMessage: failure.toString(),
           );

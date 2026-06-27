@@ -8,6 +8,7 @@ abstract interface class AuthRepository {
   Future<Result<AuthSession>> login(LoginRequest request);
   Future<Result<AuthSession>> register(RegisterRequest request);
   Future<Result<AuthUser>> getCurrentUser();
+  Future<void> clearLocalSession();
   Future<Result<void>> logout();
-  Future<Result<void>> restoreSession();
+  Future<Result<AuthUser?>> restoreSession();
 }

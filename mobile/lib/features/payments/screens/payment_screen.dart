@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../config/providers/pricing_providers.dart';
 import '../../../core/error/result.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/widgets/price_breakdown.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../bookings/providers/booking_flow_provider.dart';
 import '../models/payment_item.dart';
@@ -122,7 +124,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final flow = ref.watch(bookingFlowProvider);
-    final amount = _payment?.amount ?? flow.payableTotal;
+    final pricing = ref.watch(pricingConfigProvider);
+    final amount =
+        _payment?.amount ?? flow.totalAmount ?? flow.estimatedTotalFor(pricing);
+    final breakdown = PriceBreakdownData.fromParts(
+      baseAmount: flow.baseFare,
+      taxAmount: flow.taxAmount ?? flow.gstAmountFor(pricing),
+      pricing: pricing,
+      couponDiscount: flow.couponDiscount,
+      loyaltyDiscount: flow.creditsToRedeem * pricing.loyaltyPointValue,
+      seatCount: flow.selectedSeats.length,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Complete Payment')),
@@ -159,7 +171,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         color: AppColors.primary,
                       ),
                 ),
-                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () =>
+                      showPriceDistributionSheet(context, breakdown, pricing),
+                  child: const Text('View details'),
+                ),
+                const SizedBox(height: 16),
                 Text('Payment Method',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),

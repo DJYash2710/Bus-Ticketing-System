@@ -10,7 +10,7 @@ import type {
 } from '../types'
 
 export const SCHEDULE_COLOR_PRESETS = [
-  '#4F46E5',
+  '#008080',
   '#2563EB',
   '#0891B2',
   '#059669',
@@ -288,7 +288,7 @@ export function ScheduleModal({
                     <li key={opt.key}>
                       <button
                         type="button"
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-brand-light"
                         onClick={() => {
                           setBusRouteKey(opt.key)
                           setBusRouteSearch('')
@@ -399,7 +399,7 @@ export function ScheduleModal({
                     type="button"
                     onClick={() => setColor(c)}
                     className={`h-8 w-8 rounded-full border-2 ${
-                      color === c ? 'border-slate-900 ring-2 ring-indigo-200' : 'border-white shadow'
+                      color === c ? 'border-slate-900 ring-2 ring-brand-light' : 'border-white shadow'
                     }`}
                     style={{ backgroundColor: c }}
                     aria-label={`Color ${c}`}
@@ -439,7 +439,7 @@ export function ScheduleModal({
                 <button
                   type="submit"
                   disabled={saving || !canSave}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="btn-primary disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>

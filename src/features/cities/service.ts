@@ -37,14 +37,14 @@ export async function createCity(input: CreateCityInput) {
 }
 
 export async function listCities(search?: string) {
-  const where = search
-    ? {
-        name: { contains: search, mode: "insensitive" as const },
-      }
-    : null;
-
   return prisma.city.findMany({
-    ...(where ? { where } : {}),
+    ...(search
+      ? {
+          where: {
+            name: { contains: search },
+          },
+        }
+      : {}),
     orderBy: { name: "asc" },
   });
 }

@@ -10,6 +10,8 @@ type CreateRouteInput = {
   code: string;
   fromCityId: number;
   toCityId: number;
+  startBusStopId: number;
+  endBusStopId: number;
   distanceKm?: number;
   durationMin?: number;
 };
@@ -37,6 +39,19 @@ export async function createRoute(
     throw new ApiError(400, "Invalid fromCityId or toCityId");
   }
 
+  const [startStop, endStop] = await Promise.all([
+    prisma.busStop.findUnique({ where: { id: input.startBusStopId } }),
+    prisma.busStop.findUnique({ where: { id: input.endBusStopId } }),
+  ]);
+
+  if (!startStop || startStop.cityId !== input.fromCityId) {
+    throw new ApiError(400, "Start bus stop must belong to the from city");
+  }
+
+  if (!endStop || endStop.cityId !== input.toCityId) {
+    throw new ApiError(400, "End bus stop must belong to the to city");
+  }
+
   const existing = await prisma.route.findFirst({
     where: {
       fromCityId: input.fromCityId,
@@ -53,6 +68,8 @@ export async function createRoute(
       code: input.code,
       fromCityId: input.fromCityId,
       toCityId: input.toCityId,
+      startBusStopId: input.startBusStopId,
+      endBusStopId: input.endBusStopId,
       distanceKm: input.distanceKm ?? null,
       durationMin: input.durationMin ?? null,
       estimatedDurationMinutes: input.durationMin ?? null,
@@ -60,6 +77,8 @@ export async function createRoute(
     include: {
       fromCity: true,
       toCity: true,
+      startBusStop: true,
+      endBusStop: true,
     },
   });
 
@@ -91,6 +110,8 @@ export async function listRoutes(fromCityId?: number, toCityId?: number) {
     include: {
       fromCity: true,
       toCity: true,
+      startBusStop: true,
+      endBusStop: true,
     },
     orderBy: [{ fromCity: { name: "asc" } }, { toCity: { name: "asc" } }],
   });
@@ -99,7 +120,12 @@ export async function listRoutes(fromCityId?: number, toCityId?: number) {
 export async function getRouteById(id: number) {
   const route = await prisma.route.findUnique({
     where: { id },
-    include: { fromCity: true, toCity: true },
+    include: {
+      fromCity: true,
+      toCity: true,
+      startBusStop: true,
+      endBusStop: true,
+    },
   });
 
   if (!route) {

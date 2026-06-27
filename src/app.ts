@@ -21,6 +21,7 @@ import { couponRouter } from "./features/coupons/routes.js";
 import { loyaltyRouter } from "./features/loyalty/routes.js";
 import { userRouter } from "./features/users/routes.js";
 import { operatorRouter } from "./features/operators/routes.js";
+import { stripeWebhookController } from "./features/payments/stripeWebhook.controller.js";
 
 const app = express();
 
@@ -30,6 +31,14 @@ if (env.trustProxy) {
 
 app.use(helmet());
 app.use(cors());
+
+// Stripe webhooks require the raw request body for signature verification.
+app.post(
+  "/api/v1/payments/webhook/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhookController,
+);
+
 app.use(express.json());
 
 app.use(

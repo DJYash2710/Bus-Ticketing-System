@@ -9,6 +9,7 @@ import { Schedules } from '../pages/Schedules'
 import { SeatLayout } from '../pages/SeatLayout'
 import { Bookings } from '../pages/Bookings'
 import { Profile } from '../pages/Profile'
+import { BusStops } from '../pages/BusStops'
 import { Cities } from '../pages/admin/Cities'
 import { Routes as BusRoutes } from '../pages/admin/Routes'
 import { Coupons } from '../pages/admin/Coupons'
@@ -29,6 +30,7 @@ export function AppRouter() {
           <Route path="schedules" element={<Schedules />} />
           <Route path="seats" element={<SeatLayout />} />
           <Route path="bookings" element={<Bookings />} />
+          <Route path="bus-stops" element={<BusStops />} />
           <Route path="profile" element={<Profile />} />
         </Route>
       </Route>

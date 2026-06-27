@@ -7,6 +7,12 @@ import { AuditAction, AuditEntityType } from '../../core/audit/actions.js';
 import { auditLogFrom } from '../../core/audit/auditLog.service.js';
 import { systemAuditContext } from '../../core/audit/requestContext.js';
 import { finalizeSuccessfulPayment } from './finalizeSuccessfulPayment.js';
+import {
+  isLatePaymentAfterHoldExpiry,
+  refundLatePaymentAfterHoldExpiry,
+  shouldAutoRefundAfterFinalizeError,
+  type LatePaymentRefundResult,
+} from './latePaymentRefund.service.js';
 import { stripePaymentProvider } from './providers/stripe-payment.provider.js';
 
 const HANDLED_EVENT_TYPES = new Set([
@@ -110,6 +116,29 @@ async function handlePaymentIntentSucceeded(
     };
   }
 
+  if (payment.status === PaymentStatus.REFUNDED) {
+    return {
+      received: true,
+      type: event.type,
+      handled: true,
+      paymentId: payment.id,
+      outcome: 'already_refunded',
+    };
+  }
+
+  const refundReason = 'hold_expired';
+
+  if (isLatePaymentAfterHoldExpiry(payment)) {
+    const refundResult = await refundLatePaymentAfterHoldExpiry({
+      paymentId: payment.id,
+      paymentIntentId: paymentIntent.id,
+      stripeEventRaw: JSON.stringify(event),
+      reason: refundReason,
+    });
+
+    return toWebhookRefundOutcome(event.type, refundResult);
+  }
+
   try {
     await finalizeSuccessfulPayment({
       paymentId: payment.id,
@@ -118,24 +147,15 @@ async function handlePaymentIntentSucceeded(
       audit: systemAuditContext,
     });
   } catch (err) {
-    if (err instanceof ApiError && (err.statusCode === 410 || err.statusCode === 409)) {
-      logger.error('Stripe webhook: payment succeeded but booking could not be finalized', {
-        category: 'payment',
-        event: 'stripe_webhook_finalize_blocked',
+    if (shouldAutoRefundAfterFinalizeError(err, payment)) {
+      const refundResult = await refundLatePaymentAfterHoldExpiry({
         paymentId: payment.id,
-        bookingId: payment.bookingId,
         paymentIntentId: paymentIntent.id,
-        statusCode: err.statusCode,
-        message: err.message,
+        stripeEventRaw: JSON.stringify(event),
+        reason: refundReason,
       });
 
-      return {
-        received: true,
-        type: event.type,
-        handled: false,
-        paymentId: payment.id,
-        outcome: err.statusCode === 410 ? 'hold_expired' : 'seats_unavailable',
-      };
+      return toWebhookRefundOutcome(event.type, refundResult);
     }
 
     throw err;
@@ -147,6 +167,19 @@ async function handlePaymentIntentSucceeded(
     handled: true,
     paymentId: payment.id,
     outcome: 'finalized',
+  };
+}
+
+function toWebhookRefundOutcome(
+  eventType: string,
+  refundResult: LatePaymentRefundResult,
+): StripeWebhookResult {
+  return {
+    received: true,
+    type: eventType,
+    handled: true,
+    paymentId: refundResult.paymentId,
+    outcome: refundResult.outcome,
   };
 }
 

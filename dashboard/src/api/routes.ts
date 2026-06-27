@@ -10,6 +10,8 @@ export async function createRoute(data: {
   code: string
   fromCityId: number
   toCityId: number
+  startBusStopId: number
+  endBusStopId: number
   distanceKm?: number
   durationMin?: number
 }) {

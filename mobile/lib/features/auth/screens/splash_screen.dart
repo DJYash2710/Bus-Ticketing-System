@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/app_config.dart';
+import '../../config/providers/pricing_providers.dart';
 import '../../../core/constants/bus_facts.dart';
 import '../../../core/routing/route_paths.dart';
 import '../providers/auth_providers.dart';
@@ -28,7 +29,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<void> _bootstrap() async {
     final startedAt = DateTime.now();
-    await ref.read(authStateProvider.notifier).restoreSession();
+    await Future.wait([
+      ref.read(pricingConfigProvider.notifier).loadFromApi(),
+      ref.read(authStateProvider.notifier).restoreSession(),
+    ]);
 
     final elapsed = DateTime.now().difference(startedAt);
     if (elapsed < _minDisplayDuration) {

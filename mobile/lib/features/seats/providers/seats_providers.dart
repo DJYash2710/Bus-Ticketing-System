@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/result.dart';
@@ -15,12 +17,41 @@ final seatsRepositoryProvider = Provider<SeatsRepository>(
   (ref) => SeatsRepositoryImpl(ref.watch(seatsApiServiceProvider)),
 );
 
+/// Initial load shows a spinner; subsequent refreshes update seats in place.
 final seatLayoutProvider =
-    FutureProvider.family<SeatLayoutData, int>((ref, scheduleId) async {
-  final result =
-      await ref.watch(seatsRepositoryProvider).getSeatLayout(scheduleId);
-  return switch (result) {
-    Success(:final value) => value,
-    Error(:final failure) => throw failure,
-  };
-});
+    AutoDisposeAsyncNotifierProviderFamily<SeatLayoutNotifier, SeatLayoutData, int>(
+  SeatLayoutNotifier.new,
+);
+
+class SeatLayoutNotifier
+    extends AutoDisposeFamilyAsyncNotifier<SeatLayoutData, int> {
+  Timer? _pollTimer;
+
+  @override
+  Future<SeatLayoutData> build(int scheduleId) async {
+    ref.onDispose(() => _pollTimer?.cancel());
+    final layout = await _fetch(scheduleId);
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(_refreshSilently(scheduleId));
+    });
+    return layout;
+  }
+
+  Future<SeatLayoutData> _fetch(int scheduleId) async {
+    final result =
+        await ref.read(seatsRepositoryProvider).getSeatLayout(scheduleId);
+    return switch (result) {
+      Success(:final value) => value,
+      Error(:final failure) => throw failure,
+    };
+  }
+
+  Future<void> _refreshSilently(int scheduleId) async {
+    try {
+      final next = await _fetch(scheduleId);
+      state = AsyncData(next);
+    } catch (_) {
+      // Keep last known layout on transient network errors.
+    }
+  }
+}

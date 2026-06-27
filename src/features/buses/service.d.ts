@@ -18,9 +18,9 @@ type UpdateBusInput = {
 };
 export declare function createBus(input: CreateBusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     amenities: string[];
-    type: import(".prisma/client").$Enums.BusType;
-    id: number;
     name: string;
+    id: number;
+    type: import(".prisma/client").$Enums.BusType;
     operatorId: number | null;
     registrationNo: string;
     capacity: number;
@@ -29,9 +29,9 @@ export declare function createBus(input: CreateBusInput, caller: AuthUser, audit
 }>;
 export declare function listBuses(caller: AuthUser): Promise<{
     amenities: string[];
-    type: import(".prisma/client").$Enums.BusType;
-    id: number;
     name: string;
+    id: number;
+    type: import(".prisma/client").$Enums.BusType;
     operatorId: number | null;
     registrationNo: string;
     capacity: number;
@@ -40,9 +40,9 @@ export declare function listBuses(caller: AuthUser): Promise<{
 }[]>;
 export declare function getBusById(id: number, caller: AuthUser): Promise<{
     amenities: string[];
-    type: import(".prisma/client").$Enums.BusType;
-    id: number;
     name: string;
+    id: number;
+    type: import(".prisma/client").$Enums.BusType;
     operatorId: number | null;
     registrationNo: string;
     capacity: number;
@@ -51,9 +51,9 @@ export declare function getBusById(id: number, caller: AuthUser): Promise<{
 }>;
 export declare function updateBus(id: number, input: UpdateBusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     amenities: string[];
-    type: import(".prisma/client").$Enums.BusType;
-    id: number;
     name: string;
+    id: number;
+    type: import(".prisma/client").$Enums.BusType;
     operatorId: number | null;
     registrationNo: string;
     capacity: number;

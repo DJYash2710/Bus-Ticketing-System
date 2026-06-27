@@ -24,6 +24,7 @@ extension SecureStorageTokens on SecureStorageService {
   Future<void> clearTokens() async {
     await delete(StorageKeys.accessToken);
     await delete(StorageKeys.refreshToken);
+    await delete(StorageKeys.cachedUser);
   }
 }
 

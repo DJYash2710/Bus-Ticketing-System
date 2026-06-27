@@ -32,7 +32,17 @@ class ApiConstants {
   static const String users = '/users';
   static const String usersMe = '/users/me';
 
+  // Loyalty
+  static const String loyalty = '/loyalty';
+
   // Admin
   static const String admin = '/admin';
   static const String adminAuditLogs = 'audit-logs';
+
+  // Bus stops & coupons
+  static const String busStops = '/bus-stops';
+  static const String coupons = '/coupons';
+
+  // Public app config
+  static const String config = '/config';
 }

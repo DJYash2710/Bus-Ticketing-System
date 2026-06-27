@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Bus, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { createBus, deleteBus, listBuses, updateBus } from '../api/buses'
 import { listOperators } from '../api/operators'
 import { getErrorMessage } from '../api/client'
@@ -8,7 +8,9 @@ import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DataTable } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
-import { StatusBadge } from '../components/StatusBadge'
+import { PageHeader } from '../components/PageHeader'
+import { StatCard } from '../components/StatCard'
+import { StatusBadge, busTypeVariant } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import { validateBusForm } from '../lib/validation'
 import type { Bus as BusType, BusType as BusTypeEnum } from '../types'
@@ -131,24 +133,50 @@ export function Buses() {
 
   const buses = busesQuery.data ?? []
 
+  const avgCapacity =
+    buses.length > 0
+      ? Math.round(buses.reduce((sum, b) => sum + b.capacity, 0) / buses.length)
+      : 0
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {isAdmin ? 'Buses' : 'My Buses'}
-          </h1>
-          <p className="text-sm text-slate-500">Manage your fleet vehicles</p>
+      <PageHeader
+        title={isAdmin ? 'Buses' : 'My Buses'}
+        subtitle="Manage fleet inventory and view bus details."
+        action={
+          <button type="button" onClick={openCreate} className="btn-primary">
+            <Plus className="h-4 w-4" />
+            Add Bus
+          </button>
+        }
+      />
+
+      {!busesQuery.isLoading && buses.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Total Fleet" value={buses.length} icon={Bus} hint="Registered vehicles" />
+          <StatCard
+            label="Active Types"
+            value={new Set(buses.map((b) => b.type)).size}
+            icon={Bus}
+            iconTone="success"
+            hint="Seater, sleeper, etc."
+          />
+          <StatCard
+            label="Total Capacity"
+            value={buses.reduce((sum, b) => sum + b.capacity, 0)}
+            icon={Wrench}
+            iconTone="warning"
+            hint="Combined seat count"
+          />
+          <StatCard
+            label="Avg Capacity"
+            value={avgCapacity}
+            icon={Bus}
+            iconTone="neutral"
+            hint="Seats per bus"
+          />
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add bus
-        </button>
-      </div>
+      )}
 
       {busesQuery.isLoading ? (
         <DataTable columns={[]} data={[]} keyExtractor={() => ''} loading />
@@ -158,11 +186,7 @@ export function Buses() {
           title="No buses yet"
           description="Add your first bus to start creating schedules and managing seats."
           action={
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
+            <button type="button" onClick={openCreate} className="btn-primary">
               Add your first bus
             </button>
           }
@@ -172,10 +196,18 @@ export function Buses() {
           data={buses}
           keyExtractor={(b) => b.id}
           columns={[
-            { key: 'reg', header: 'Registration', render: (b) => b.registrationNo },
-            { key: 'name', header: 'Name', render: (b) => b.name },
-            { key: 'type', header: 'Type', render: (b) => <StatusBadge label={b.type.replace('_', ' ')} variant="info" /> },
-            { key: 'cap', header: 'Capacity', render: (b) => b.capacity },
+            { key: 'reg', header: 'Registration No', render: (b) => (
+              <span className="font-medium text-slate-900">{b.registrationNo}</span>
+            ) },
+            { key: 'name', header: 'Name / Alias', render: (b) => b.name },
+            {
+              key: 'type',
+              header: 'Type',
+              render: (b) => (
+                <StatusBadge label={b.type.replace('_', ' ')} variant={busTypeVariant(b.type)} />
+              ),
+            },
+            { key: 'cap', header: 'Capacity', render: (b) => `${b.capacity} seats` },
             {
               key: 'actions',
               header: '',
@@ -220,7 +252,7 @@ export function Buses() {
                   <input
                     value={form.registrationNo}
                     onChange={(e) => setForm({ ...form, registrationNo: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -230,7 +262,7 @@ export function Buses() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="input-field"
                   required
                 />
               </div>
@@ -242,7 +274,7 @@ export function Buses() {
                   max={100}
                   value={form.capacity}
                   onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="input-field"
                 />
               </div>
               <div>
@@ -253,7 +285,7 @@ export function Buses() {
                       key={t.value}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
                         form.type === t.value
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          ? 'border-brand bg-brand-light text-brand'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -282,7 +314,7 @@ export function Buses() {
                         operatorId: e.target.value ? Number(e.target.value) : '',
                       })
                     }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="input-field"
                   >
                     <option value="">No operator</option>
                     {operatorsQuery.data?.map((op) => (
@@ -294,18 +326,10 @@ export function Buses() {
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm"
-                >
+                <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
+                <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
                   {saveMutation.isPending ? 'Saving...' : 'Save'}
                 </button>
               </div>

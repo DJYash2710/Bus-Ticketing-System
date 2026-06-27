@@ -24,9 +24,11 @@ class AuthApiService extends BaseApiService {
   }
 
   Future<AuthSession> register(RegisterRequest request) async {
+    final payload = Map<String, dynamic>.from(request.toJson())
+      ..removeWhere((_, value) => value == null);
     return post<AuthSession>(
       ApiConstants.authRegister,
-      data: request.toJson(),
+      data: payload,
       parser: (json) {
         final map = json as Map<String, dynamic>;
         return AuthSession(

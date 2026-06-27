@@ -136,6 +136,7 @@ model City {
   state   String?
   country String? @default("India")
 
+  busStops   BusStop[]
   routesFrom Route[] @relation("RouteFromCity")
   routesTo   Route[] @relation("RouteToCity")
 
@@ -145,18 +146,38 @@ model City {
   @@unique([name, state, country])
 }
 
+model BusStop {
+  id       Int    @id @default(autoincrement())
+  name     String
+  locality String
+  cityId   Int
+
+  city          City    @relation(fields: [cityId], references: [id])
+  routesAsStart Route[] @relation("RouteStartStop")
+  routesAsEnd   Route[] @relation("RouteEndStop")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cityId])
+}
+
 model Route {
   id                       Int    @id @default(autoincrement())
   code                     String @unique
   fromCityId               Int
   toCityId                 Int
+  startBusStopId           Int?
+  endBusStopId             Int?
   distanceKm               Int?
   durationMin              Int?
   estimatedDurationMinutes Int?
 
-  fromCity  City       @relation("RouteFromCity", fields: [fromCityId], references: [id])
-  toCity    City       @relation("RouteToCity", fields: [toCityId], references: [id])
-  schedules Schedule[]
+  fromCity     City     @relation("RouteFromCity", fields: [fromCityId], references: [id])
+  toCity       City     @relation("RouteToCity", fields: [toCityId], references: [id])
+  startBusStop BusStop? @relation("RouteStartStop", fields: [startBusStopId], references: [id])
+  endBusStop   BusStop? @relation("RouteEndStop", fields: [endBusStopId], references: [id])
+  schedules    Schedule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -245,6 +266,9 @@ model Booking {
   commissionRate   Decimal @default(0.0500) @db.Decimal(5, 4)
   commissionAmount Decimal @default(0) @db.Decimal(10, 2)
   totalAmount      Decimal @db.Decimal(10, 2)
+
+  boardingPoint String?
+  droppingPoint String?
 
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)

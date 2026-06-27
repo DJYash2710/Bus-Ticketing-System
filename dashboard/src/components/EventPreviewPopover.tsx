@@ -28,7 +28,7 @@ export function EventPreviewPopover({
         <div className="flex items-center gap-2">
           <span
             className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: schedule.color ?? '#4F46E5' }}
+            style={{ backgroundColor: schedule.color ?? '#008080' }}
           />
           <div>
             <p className="font-medium text-slate-900">

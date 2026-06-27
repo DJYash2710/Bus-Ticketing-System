@@ -36,7 +36,7 @@ export function RecurrenceScopePicker({
               key={opt.scope}
               type="button"
               onClick={() => onSelect(opt.scope)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:border-indigo-300 hover:bg-indigo-50"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:border-brand-muted hover:bg-brand-light"
             >
               <span className="block text-sm font-medium text-slate-900">{opt.label}</span>
               <span className="text-xs text-slate-500">{opt.hint}</span>

@@ -54,7 +54,7 @@ function scheduleToEvent(schedule: Schedule): EventInput {
   const booked = schedule.bookedSeatsCount ?? schedule.bookingsCount ?? 0
   const total = schedule.seatsCount ?? schedule._count?.seats ?? 0
   const busLabel = schedule.bus?.registrationNo ?? `#${schedule.busId}`
-  const bg = schedule.color ?? '#4F46E5'
+  const bg = schedule.color ?? '#008080'
 
   return {
     id: String(schedule.id),
@@ -363,7 +363,7 @@ export function Schedules() {
           action={
             <Link
               to="/buses"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
             >
               Add your first bus
             </Link>
@@ -419,7 +419,7 @@ export function Schedules() {
                 type="button"
                 onClick={() => openCreate(new Date())}
                 disabled={!hasBuses}
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
                 New schedule
@@ -436,7 +436,7 @@ export function Schedules() {
               {schedulesQuery.isLoading && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
                   <div className="space-y-2 text-center">
-                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-brand-light border-t-brand" />
                     <p className="text-sm text-slate-500">Loading schedules...</p>
                   </div>
                 </div>
@@ -445,7 +445,7 @@ export function Schedules() {
               {isEmpty && !schedulesQuery.isLoading && (
                 <div className="pointer-events-none absolute inset-x-0 top-12 z-10 flex justify-center p-4">
                   <div className="max-w-sm rounded-xl border border-dashed border-slate-300 bg-white/95 px-6 py-8 text-center shadow-sm">
-                    <Calendar className="mx-auto mb-3 h-10 w-10 text-indigo-400" />
+                    <Calendar className="mx-auto mb-3 h-10 w-10 text-brand" />
                     <p className="font-medium text-slate-900">No schedules in this range</p>
                     <p className="mt-1 text-sm text-slate-500">
                       Double-click any time slot or use New schedule to add your first trip.
@@ -494,17 +494,17 @@ export function Schedules() {
                     month_caption: 'flex justify-center px-1',
                     caption_label: 'text-xs font-medium text-slate-700',
                     nav: 'flex items-center gap-1',
-                    button_previous: 'h-6 w-6 rounded hover:bg-indigo-50',
-                    button_next: 'h-6 w-6 rounded hover:bg-indigo-50',
+                    button_previous: 'h-6 w-6 rounded hover:bg-brand-light',
+                    button_next: 'h-6 w-6 rounded hover:bg-brand-light',
                     month_grid: 'w-full table-fixed border-collapse',
                     weekdays: 'text-[0.65rem] text-slate-400',
                     weekday: 'p-0 text-center font-medium',
                     week: 'mt-0.5',
                     day: 'p-0 text-center',
                     day_button:
-                      'mx-auto flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-indigo-50',
-                    selected: '!bg-indigo-600 !text-white hover:!bg-indigo-600',
-                    today: 'font-bold text-indigo-600',
+                      'mx-auto flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-brand-light',
+                    selected: '!bg-brand !text-white hover:!bg-brand',
+                    today: 'font-bold text-brand',
                     outside: 'text-slate-300',
                   }}
                 />
@@ -527,7 +527,7 @@ export function Schedules() {
                                 type="checkbox"
                                 checked={!hiddenBusIds.has(bus.id)}
                                 onChange={() => toggleBus(bus.id)}
-                                className="rounded border-slate-300 text-indigo-600"
+                                className="rounded border-slate-300 text-brand"
                               />
                               <span className="truncate">{bus.registrationNo}</span>
                             </label>

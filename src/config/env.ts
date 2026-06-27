@@ -36,4 +36,29 @@ export const env = {
       max: readPositiveInt(process.env.RATE_LIMIT_MODERATE_MAX, 60),
     },
   },
+
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  },
+
+  paymentProvider: normalizePaymentProvider(process.env.PAYMENT_PROVIDER),
 };
+
+function normalizePaymentProvider(
+  value: string | undefined,
+): 'MOCK' | 'STRIPE' {
+  const normalized = (value || 'MOCK').trim().toUpperCase();
+
+  if (normalized === 'STRIPE') {
+    return 'STRIPE';
+  }
+
+  if (normalized !== 'MOCK' && normalized.length > 0) {
+    throw new Error(
+      `Invalid PAYMENT_PROVIDER "${value}". Expected MOCK or STRIPE.`,
+    );
+  }
+
+  return 'MOCK';
+}

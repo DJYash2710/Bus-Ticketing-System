@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart';
+
+import 'dev_api_config.g.dart';
+
 enum AppEnvironment {
   development,
   staging,
@@ -28,10 +32,16 @@ class EnvConfig {
     apiBaseUrl = baseUrl ??
         const String.fromEnvironment(
           'API_BASE_URL',
-          defaultValue: 'http://localhost:4000/api/v1',
+          defaultValue: kDebugMode
+              ? DevApiConfig.apiBaseUrl
+              : 'http://localhost:4000/api/v1',
         );
   }
 
   static bool get isDevelopment => environment == AppEnvironment.development;
   static bool get isProduction => environment == AppEnvironment.production;
+
+  /// `localhost` only reaches your PC while USB debugging port-forwarding is active.
+  static bool get usesLocalhost =>
+      apiBaseUrl.contains('localhost') || apiBaseUrl.contains('127.0.0.1');
 }

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../shared/providers/core_providers.dart';
+import '../../auth/providers/auth_providers.dart';
+import '../models/change_password_request.dart';
 import '../models/update_profile_request.dart';
 import '../models/user_profile.dart';
 import '../repositories/profile_repository.dart';
@@ -17,6 +20,11 @@ final profileRepositoryProvider = Provider<ProfileRepository>(
 );
 
 final userProfileProvider = FutureProvider<UserProfile>((ref) async {
+  final auth = ref.watch(authStateProvider);
+  if (!auth.isAuthenticated) {
+    throw const Failure.unauthorized(message: 'Not authenticated');
+  }
+
   final result = await ref.watch(profileRepositoryProvider).getProfile();
   return switch (result) {
     Success(:final value) => value,
@@ -29,5 +37,13 @@ final updateProfileProvider = Provider<
   (ref) {
     final repository = ref.watch(profileRepositoryProvider);
     return (request) => repository.updateProfile(request);
+  },
+);
+
+final changePasswordProvider = Provider<
+    Future<Result<void>> Function(ChangePasswordRequest)>(
+  (ref) {
+    final repository = ref.watch(profileRepositoryProvider);
+    return (request) => repository.changePassword(request);
   },
 );

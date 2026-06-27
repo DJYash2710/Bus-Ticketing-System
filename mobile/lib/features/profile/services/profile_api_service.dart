@@ -2,6 +2,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/services/base_api_service.dart';
 import '../models/update_profile_request.dart';
 import '../models/user_profile.dart';
+import '../models/change_password_request.dart';
 
 class ProfileApiService extends BaseApiService {
   ProfileApiService(super.dio);
@@ -15,5 +16,11 @@ class ProfileApiService extends BaseApiService {
         ApiConstants.usersMe,
         data: request.toJson(),
         parser: (json) => UserProfile.fromJson(json as Map<String, dynamic>),
+      );
+
+  Future<void> changePassword(ChangePasswordRequest request) => patch(
+        '${ApiConstants.usersMe}/password',
+        data: request.toJson(),
+        parser: (_) {},
       );
 }

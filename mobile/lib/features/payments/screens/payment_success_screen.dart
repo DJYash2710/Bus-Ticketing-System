@@ -5,16 +5,38 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../bookings/providers/booking_flow_provider.dart';
+import '../../bookings/providers/bookings_providers.dart';
 
-class PaymentSuccessScreen extends ConsumerWidget {
+class PaymentSuccessScreen extends ConsumerStatefulWidget {
   const PaymentSuccessScreen({required this.paymentId, super.key});
 
   final int paymentId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PaymentSuccessScreen> createState() =>
+      _PaymentSuccessScreenState();
+}
+
+class _PaymentSuccessScreenState extends ConsumerState<PaymentSuccessScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myBookingsProvider);
+      final bookingId = ref.read(bookingFlowProvider).bookingId;
+      if (bookingId != null) {
+        NotificationService.instance.notifyTicketConfirmed(
+          pnr: ref.read(bookingFlowProvider).pnrFor(bookingId),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final flow = ref.watch(bookingFlowProvider);
     final bookingId = flow.bookingId;
 

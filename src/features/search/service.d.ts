@@ -6,17 +6,17 @@ type SearchSchedulesInput = {
 export declare function searchSchedules(input: SearchSchedulesInput): Promise<{
     search: {
         fromCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
         toCity: {
-            state: string | null;
-            id: number;
             name: string;
+            id: number;
+            state: string | null;
             country: string | null;
             createdAt: Date;
             updatedAt: Date;
@@ -36,17 +36,17 @@ export declare function searchSchedules(input: SearchSchedulesInput): Promise<{
             distanceKm: number | null;
             durationMin: number | null;
             fromCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             };
             toCity: {
-                state: string | null;
-                id: number;
                 name: string;
+                id: number;
+                state: string | null;
                 country: string | null;
                 createdAt: Date;
                 updatedAt: Date;

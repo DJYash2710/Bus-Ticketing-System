@@ -62,13 +62,14 @@ export async function cancelScheduleCascade(scheduleId, audit) {
             },
             data: { status: ScheduleStatus.CANCELLED },
         });
-        if (scheduleUpdate.count === 0) {
+        const scheduleTransitioned = scheduleUpdate.count > 0;
+        if (!scheduleTransitioned) {
             const current = await tx.schedule.findUnique({
                 where: { id: scheduleId },
                 include: scheduleInclude,
             });
             return {
-                alreadyCancelled: true,
+                scheduleTransitioned: false,
                 bookingResults: [],
                 seatsSwept: 0,
                 schedule: current,
@@ -109,13 +110,13 @@ export async function cancelScheduleCascade(scheduleId, audit) {
             include: scheduleInclude,
         });
         return {
-            alreadyCancelled: false,
+            scheduleTransitioned: true,
             bookingResults,
             seatsSwept: sweep.count,
             schedule,
         };
     }, { timeout: 30_000 });
-    if (txResult.alreadyCancelled && txResult.schedule) {
+    if (!txResult.scheduleTransitioned && txResult.schedule) {
         return {
             schedule: formatSchedule(txResult.schedule),
             alreadyCancelled: true,
@@ -136,7 +137,7 @@ export async function cancelScheduleCascade(scheduleId, audit) {
         paymentsCancelled: changedBookings.filter((r) => r.paymentCancelled).length,
         seatsSwept: txResult.seatsSwept,
     };
-    if (!txResult.alreadyCancelled) {
+    if (txResult.scheduleTransitioned) {
         auditLogFrom(audit, {
             action: AuditAction.SCHEDULE_CANCELLED,
             entityType: AuditEntityType.SCHEDULE,

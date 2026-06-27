@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,8 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../core/utils/password_validator.dart';
+import '../../../core/utils/phone_validator.dart';
 import '../models/register_request.dart';
 import '../providers/auth_providers.dart';
 
@@ -22,6 +25,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
+  final _referral = TextEditingController();
   bool _loading = false;
 
   @override
@@ -30,6 +34,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _email.dispose();
     _phone.dispose();
     _password.dispose();
+    _referral.dispose();
     super.dispose();
   }
 
@@ -41,7 +46,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             name: _name.text.trim(),
             email: _email.text.trim(),
             password: _password.text,
-            phone: _phone.text.trim(),
+            phone: _phone.text.replaceAll(RegExp(r'\D'), ''),
+            referralCode: _referral.text.trim().isEmpty
+                ? null
+                : _referral.text.trim().toUpperCase(),
           ),
         );
     if (!mounted) return;
@@ -91,8 +99,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 label: 'Phone',
                 prefixIcon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
-                validator: (v) =>
-                    v == null || v.length < 10 ? 'Valid phone required' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: validatePhone,
+              ),
+              const SizedBox(height: 16),
+              AppTextField(
+                controller: _referral,
+                label: 'Referral Code (optional)',
+                prefixIcon: Icons.card_giftcard_outlined,
+                textCapitalization: TextCapitalization.characters,
               ),
               const SizedBox(height: 16),
               AppTextField(
@@ -100,8 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 label: 'Password',
                 prefixIcon: Icons.lock_outline_rounded,
                 obscureText: true,
-                validator: (v) =>
-                    v == null || v.length < 6 ? 'Min 6 characters' : null,
+                validator: validatePassword,
               ),
               const SizedBox(height: 24),
               PrimaryButton(

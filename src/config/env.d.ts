@@ -8,6 +8,7 @@ export declare const env: {
     loyaltyEarnRate: number;
     loyaltyPointValue: number;
     platformCommissionRate: number;
+    gstRate: number;
     redisUrl: string;
     trustProxy: boolean;
     rateLimit: {
@@ -20,6 +21,10 @@ export declare const env: {
             windowMs: number;
             max: number;
         };
+    };
+    stripe: {
+        secretKey: string;
+        webhookSecret: string;
     };
 };
 //# sourceMappingURL=env.d.ts.map
