@@ -122,7 +122,7 @@ class ProfileScreen extends ConsumerWidget {
               icon: Icons.wallet_outlined,
               label: 'Loyalty Balance',
               trailing: Text(
-                '₹${user.creditsBalance.toInt()}',
+                '${user.creditsBalance.toInt()} points',
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,

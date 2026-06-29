@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/pricing_config.dart';
+import '../../../core/services/stripe_service.dart';
 import '../../../shared/providers/core_providers.dart';
 import '../services/config_api_service.dart';
 
@@ -14,7 +15,9 @@ class PricingConfigNotifier extends Notifier<PricingConfig> {
 
   Future<void> loadFromApi() async {
     try {
-      state = await ref.read(configApiServiceProvider).fetchPricing();
+      final config = await ref.read(configApiServiceProvider).fetchPricing();
+      state = config;
+      await StripeService.instance.configure(config);
     } catch (_) {
       // Keep defaults when offline or server unreachable.
     }

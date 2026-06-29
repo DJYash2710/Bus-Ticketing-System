@@ -20,6 +20,7 @@ export const env = {
   loyaltyEarnRate: Number(process.env.LOYALTY_EARN_RATE || '0.075'),
   loyaltyPointValue: Number(process.env.LOYALTY_POINT_VALUE || '0.1'),
   platformCommissionRate: Number(process.env.PLATFORM_COMMISSION_RATE || '0.05'),
+  gstRate: Number(process.env.GST_RATE || '0.18'),
 
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
@@ -40,6 +41,7 @@ export const env = {
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
   },
 
   paymentProvider: normalizePaymentProvider(process.env.PAYMENT_PROVIDER),

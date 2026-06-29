@@ -50,8 +50,9 @@ The backend exposes a versioned REST API at `/api/v1` with JWT auth, role-based 
 - Boarding / dropping bus stop selection
 - Coupon codes and loyalty point redemption
 - Transparent fare breakdown including GST
+- **Stripe Payment Sheet** checkout (Android/iOS) with webhook confirmation
 - My Trips, ticket details, profile, and change password
-- Loyalty balance history
+- Loyalty balance shown as **points** with history
 
 ### Admin & operator (React dashboard)
 
@@ -67,6 +68,9 @@ The backend exposes a versioned REST API at `/api/v1` with JWT auth, role-based 
 - User registration, login, refresh tokens
 - Route & schedule management with seat generation
 - Booking holds, payments, cancellations
+- **Stripe** PaymentIntents, webhooks, and auto-refund on late payment after hold expiry
+- **Mock** payment provider for local development (`PAYMENT_PROVIDER=MOCK`)
+- Search hides buses whose departure time has already passed (same-day searches)
 - Coupons, loyalty credits, and referrals
 - Bus stop CRUD per city
 - Configurable GST rate and rate limits
@@ -108,9 +112,9 @@ flowchart LR
 
 | Layer         | Technologies                                             |
 | ------------- | -------------------------------------------------------- |
-| **Mobile**    | Flutter 3.x, Dart, Riverpod, GoRouter, Dio, Freezed      |
+| **Mobile**    | Flutter 3.x, Dart, Riverpod, GoRouter, Dio, Freezed, flutter_stripe |
 | **Dashboard** | React 19, TypeScript, Vite, TanStack Query, Tailwind CSS |
-| **API**       | Node.js, Express 5, TypeScript, Joi validation           |
+| **API**       | Node.js, Express 5, TypeScript, Joi validation, Stripe SDK |
 | **Database**  | MySQL, Prisma ORM                                        |
 | **Auth**      | JWT (access + refresh), bcrypt                           |
 | **Infra**     | Redis, Winston logging, Helmet, CORS, express-rate-limit |
@@ -228,7 +232,11 @@ LOYALTY_POINT_VALUE=0.1
 PLATFORM_COMMISSION_RATE=0.05
 GST_RATE=0.18
 
-RATE_LIMIT_ENABLED=true
+# Payments — MOCK (default) or STRIPE
+PAYMENT_PROVIDER=MOCK
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
 RATE_LIMIT_STRICT_WINDOW_MS=900000
 RATE_LIMIT_STRICT_MAX=10
 RATE_LIMIT_MODERATE_WINDOW_MS=60000
@@ -254,7 +262,7 @@ Base URL: `/api/v1`
 | Schedules | `/schedules` | Departures and seat maps         |
 | Search    | `/search`    | Passenger schedule search        |
 | Bookings  | `/bookings`  | Create, list, cancel bookings    |
-| Payments  | `/payments`  | Payment initiate and confirm     |
+| Payments  | `/payments`  | Initiate, confirm (mock), Stripe webhook, status by booking |
 | Coupons   | `/coupons`   | Validate and manage coupons      |
 | Loyalty   | `/loyalty`   | Points summary and history       |
 | Users     | `/users`     | Profile and password             |
@@ -296,6 +304,24 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:4000/api/v1
 ```
 
 Ensure the phone and PC are on the same network and the API binds to `0.0.0.0` or your LAN IP.
+
+### Stripe payments (mobile)
+
+1. Set `PAYMENT_PROVIDER=STRIPE` and add Stripe test keys to `.env`.
+2. Run the API and forward webhooks locally:
+   ```bash
+   stripe listen --forward-to localhost:4000/api/v1/payments/webhook/stripe
+   ```
+3. Copy the `whsec_...` secret into `STRIPE_WEBHOOK_SECRET` and restart the API.
+4. Run on **Android or iOS** (Stripe Payment Sheet is not supported on Windows/web):
+   ```bash
+   cd mobile
+   flutter clean && flutter pub get
+   flutter run -d android
+   ```
+5. Test card: `4242 4242 4242 4242`, any future expiry, any CVC.
+
+If the webhook is slow, the app syncs payment status directly with Stripe via the initiate/status endpoints.
 
 ---
 

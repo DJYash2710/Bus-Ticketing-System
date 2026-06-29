@@ -17,4 +17,8 @@ class PaymentsRepositoryImpl extends BaseRepository
   @override
   Future<Result<PaymentItem>> initiatePayment(int bookingId) =>
       guard(() => _apiService.initiate(bookingId));
+
+  @override
+  Future<Result<PaymentItem>> getPaymentByBooking(int bookingId) =>
+      guard(() => _apiService.getByBooking(bookingId));
 }

@@ -15,6 +15,20 @@ import {
 
 const DEFAULT_CURRENCY = 'inr';
 
+function compactStripeSnapshot(obj: {
+  id: string;
+  status: string;
+  amount?: number | null;
+  currency?: string | null;
+}) {
+  return JSON.stringify({
+    id: obj.id,
+    status: obj.status,
+    amount: obj.amount,
+    currency: obj.currency,
+  });
+}
+
 function toMinorUnits(amount: number): number {
   return Math.round(amount * 100);
 }
@@ -60,7 +74,7 @@ export class StripePaymentProvider implements PaymentProvider {
     return {
       providerRef: paymentIntent.id,
       clientSecret: paymentIntent.client_secret,
-      rawResponse: JSON.stringify(paymentIntent),
+      rawResponse: compactStripeSnapshot(paymentIntent),
     };
   }
 
@@ -74,7 +88,7 @@ export class StripePaymentProvider implements PaymentProvider {
       providerRef: paymentIntent.id,
       status: mapPaymentIntentStatus(paymentIntent.status),
       stripeStatus: paymentIntent.status,
-      rawResponse: JSON.stringify(paymentIntent),
+      rawResponse: compactStripeSnapshot(paymentIntent),
     };
   }
 
@@ -99,7 +113,7 @@ export class StripePaymentProvider implements PaymentProvider {
 
     return {
       refundId: refund.id,
-      rawResponse: JSON.stringify(refund),
+      rawResponse: compactStripeSnapshot(refund),
     };
   }
 

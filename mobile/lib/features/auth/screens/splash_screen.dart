@@ -52,41 +52,43 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              const Icon(Icons.directions_bus_rounded, size: 72, color: teal),
-              const SizedBox(height: 16),
-              Text(
-                AppConfig.appName,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: teal,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-              ),
-              const SizedBox(height: 40),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: teal,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.directions_bus_rounded, size: 72, color: teal),
+                const SizedBox(height: 16),
+                Text(
+                  AppConfig.appName,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: teal,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
                 ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                _fact,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade600,
-                      height: 1.45,
-                    ),
-              ),
-              const Spacer(flex: 3),
-            ],
+                const SizedBox(height: 40),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: teal,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  _fact,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade600,
+                        height: 1.45,
+                      ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

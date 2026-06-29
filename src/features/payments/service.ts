@@ -462,11 +462,71 @@ export async function getPaymentByBookingId(bookingId: number, userId: number) {
 
   if (!booking) throw new ApiError(404, "Booking not found");
 
-  const payment = await prisma.payment.findUnique({
+  let payment = await prisma.payment.findUnique({
     where: { bookingId },
   });
 
   if (!payment) throw new ApiError(404, "No payment found for this booking");
 
-  return payment;
+  return syncPendingStripePayment(payment);
+}
+
+/** When webhook delivery is delayed, reconcile a succeeded PI from Stripe directly. */
+async function syncPendingStripePayment(payment: Payment): Promise<Payment> {
+  if (
+    env.paymentProvider !== PAYMENT_PROVIDERS.STRIPE ||
+    payment.provider !== PAYMENT_PROVIDERS.STRIPE ||
+    payment.status !== PaymentStatus.PENDING ||
+    !payment.providerRef ||
+    !isStripeConfigured()
+  ) {
+    return payment;
+  }
+
+  const paymentWithBooking = await prisma.payment.findUnique({
+    where: { id: payment.id },
+    include: { booking: true },
+  });
+
+  if (!paymentWithBooking) {
+    return payment;
+  }
+
+  const remote = await stripePaymentProvider.retrievePayment(payment.providerRef);
+
+  if (!STRIPE_PI_IN_FLIGHT.has(remote.stripeStatus)) {
+    return payment;
+  }
+
+  if (remote.stripeStatus === "succeeded") {
+    if (isLatePaymentAfterHoldExpiry(paymentWithBooking)) {
+      await refundLatePaymentAfterHoldExpiry({
+        paymentId: payment.id,
+        paymentIntentId: remote.providerRef,
+        stripeEventRaw: remote.rawResponse,
+        reason: "hold_expired",
+      });
+    } else {
+      try {
+        await finalizeStripePaymentIfSucceeded(
+          payment,
+          remote.providerRef,
+          remote.rawResponse,
+        );
+      } catch (err) {
+        if (shouldAutoRefundAfterFinalizeError(err, paymentWithBooking)) {
+          await refundLatePaymentAfterHoldExpiry({
+            paymentId: payment.id,
+            paymentIntentId: remote.providerRef,
+            stripeEventRaw: remote.rawResponse,
+            reason: "hold_expired",
+          });
+        }
+      }
+    }
+  }
+
+  return (
+    (await prisma.payment.findUnique({ where: { id: payment.id } })) ?? payment
+  );
 }

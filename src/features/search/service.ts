@@ -37,11 +37,17 @@ export async function searchSchedules(input: SearchSchedulesInput) {
   const end = new Date(input.date);
   end.setHours(23, 59, 59, 999);
 
+  const now = new Date();
+  let minDeparture = start;
+  if (now >= start && now <= end) {
+    minDeparture = now;
+  }
+
   const schedules = await prisma.schedule.findMany({
     where: {
       status: ScheduleStatus.ACTIVE,
       departureTime: {
-        gte: start,
+        gte: minDeparture,
         lte: end,
       },
       route: {

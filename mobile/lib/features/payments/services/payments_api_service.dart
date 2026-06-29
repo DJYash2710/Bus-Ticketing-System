@@ -14,4 +14,9 @@ class PaymentsApiService extends BaseApiService {
         '${ApiConstants.payments}/confirm/$paymentId',
         parser: (json) => PaymentItem.fromJson(json as Map<String, dynamic>),
       );
+
+  Future<PaymentItem> getByBooking(int bookingId) => get(
+        '${ApiConstants.payments}/booking/$bookingId',
+        parser: (json) => PaymentItem.fromJson(json as Map<String, dynamic>),
+      );
 }

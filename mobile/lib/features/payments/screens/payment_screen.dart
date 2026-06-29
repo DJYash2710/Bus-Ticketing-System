@@ -14,8 +14,8 @@ import '../../../shared/widgets/primary_button.dart';
 import '../../bookings/providers/booking_flow_provider.dart';
 import '../models/payment_item.dart';
 import '../providers/payments_providers.dart';
-
-enum PaymentMethodOption { upi, card, netBanking, wallet }
+import '../services/stripe_payment_sheet.dart';
+import '../../../core/services/stripe_service.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({required this.bookingId, super.key});
@@ -27,7 +27,6 @@ class PaymentScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
-  PaymentMethodOption _method = PaymentMethodOption.upi;
   PaymentItem? _payment;
   bool _loading = true;
   bool _paying = false;
@@ -51,15 +50,27 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   Future<void> _init() async {
     try {
-      final result =
-          await ref.read(paymentsRepositoryProvider).initiatePayment(widget.bookingId);
+      final result = await ref
+          .read(paymentsRepositoryProvider)
+          .initiatePayment(widget.bookingId);
       switch (result) {
         case Success(:final value):
           ref.read(bookingFlowProvider.notifier).setPaymentId(value.id);
+          if (!mounted) return;
+
+          if (value.isCompleted) {
+            _goToSuccess(value.id);
+            return;
+          }
+
           setState(() {
             _payment = value;
             _loading = false;
           });
+
+          if (value.isProcessing) {
+            unawaited(_pollForConfirmation(value.id));
+          }
         case Error(:final failure):
           setState(() => _loading = false);
           if (mounted) {
@@ -87,16 +98,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Future<void> _pay() async {
     if (_payment == null) return;
     setState(() => _paying = true);
+
     try {
+      if (_payment!.isStripe) {
+        await _payWithStripe(_payment!);
+        return;
+      }
+
       final result =
           await ref.read(paymentsRepositoryProvider).confirmPayment(_payment!.id);
       switch (result) {
         case Success():
-          if (mounted) {
-            context.go(
-              RoutePaths.paymentStatus.replaceFirst(':id', '${_payment!.id}'),
-            );
-          }
+          if (mounted) _goToSuccess(_payment!.id);
         case Error(:final failure):
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -105,7 +118,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !isStripeUserCancellation(e)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Payment failed: $e')),
         );
@@ -113,6 +126,119 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } finally {
       if (mounted) setState(() => _paying = false);
     }
+  }
+
+  Future<void> _payWithStripe(PaymentItem payment) async {
+    if (!isStripeNativePlatform) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Stripe checkout needs Android or iOS. '
+              'Connect a phone or start an Android emulator, then run '
+              'flutter run -d android.',
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!payment.isReadyForStripeSheet) {
+      if (payment.isProcessing) {
+        await _pollForConfirmation(payment.id);
+        return;
+      }
+
+      throw StateError('Stripe payment is not ready for checkout');
+    }
+
+    try {
+      await presentStripePaymentSheet(payment.clientSecret!);
+    } catch (e) {
+      if (!isStripeUserCancellation(e) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(stripePaymentErrorMessage(e))),
+        );
+      }
+      return;
+    }
+
+    await _syncStripePaymentAfterSheet(payment.id);
+  }
+
+  /// Reconcile with Stripe when the webhook has not updated the DB yet.
+  Future<void> _syncStripePaymentAfterSheet(int paymentId) async {
+    final syncResult = await ref
+        .read(paymentsRepositoryProvider)
+        .initiatePayment(widget.bookingId);
+
+    if (syncResult case Success(:final value)) {
+      if (value.isCompleted) {
+        if (mounted) _goToSuccess(paymentId);
+        return;
+      }
+    }
+
+    await _pollForConfirmation(paymentId);
+  }
+
+  Future<void> _pollForConfirmation(int paymentId) async {
+    if (!mounted) return;
+
+    setState(() => _paying = true);
+
+    try {
+      for (var attempt = 0; attempt < 15; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+
+        final result = await ref
+            .read(paymentsRepositoryProvider)
+            .getPaymentByBooking(widget.bookingId);
+
+        switch (result) {
+          case Success(:final value):
+            if (value.status == 'SUCCESS') {
+              if (mounted) _goToSuccess(paymentId);
+              return;
+            }
+            if (value.status == 'REFUNDED') {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Your hold expired before payment completed. '
+                      'A refund has been issued.',
+                    ),
+                  ),
+                );
+              }
+              return;
+            }
+          case Error():
+            break;
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Payment received. Confirmation is still processing — '
+              'check My Trips shortly.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  void _goToSuccess(int paymentId) {
+    context.go(RoutePaths.paymentStatus.replaceFirst(':id', '$paymentId'));
   }
 
   String get _timerLabel {
@@ -125,6 +251,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget build(BuildContext context) {
     final flow = ref.watch(bookingFlowProvider);
     final pricing = ref.watch(pricingConfigProvider);
+    final usesStripe = pricing.usesStripe || (_payment?.isStripe ?? false);
     final amount =
         _payment?.amount ?? flow.totalAmount ?? flow.estimatedTotalFor(pricing);
     final breakdown = PriceBreakdownData.fromParts(
@@ -177,41 +304,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   child: const Text('View details'),
                 ),
                 const SizedBox(height: 16),
-                Text('Payment Method',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                _MethodTile(
-                  title: 'UPI',
-                  subtitle: 'Google Pay, PhonePe, Paytm',
-                  icon: Icons.qr_code_rounded,
-                  selected: _method == PaymentMethodOption.upi,
-                  onTap: () =>
-                      setState(() => _method = PaymentMethodOption.upi),
-                ),
-                _MethodTile(
-                  title: 'Credit / Debit Card',
-                  subtitle: 'Visa, Mastercard, RuPay',
-                  icon: Icons.credit_card_rounded,
-                  selected: _method == PaymentMethodOption.card,
-                  onTap: () =>
-                      setState(() => _method = PaymentMethodOption.card),
-                ),
-                _MethodTile(
-                  title: 'Net Banking',
-                  subtitle: 'All major Indian banks',
-                  icon: Icons.account_balance_rounded,
-                  selected: _method == PaymentMethodOption.netBanking,
-                  onTap: () =>
-                      setState(() => _method = PaymentMethodOption.netBanking),
-                ),
-                _MethodTile(
-                  title: 'Wallets',
-                  subtitle: 'Amazon Pay, Mobikwik',
-                  icon: Icons.account_balance_wallet_outlined,
-                  selected: _method == PaymentMethodOption.wallet,
-                  onTap: () =>
-                      setState(() => _method = PaymentMethodOption.wallet),
-                ),
+                if (usesStripe) ...[
+                  Text('Secure checkout',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.surface,
+                        child: Icon(Icons.lock_rounded, color: AppColors.primary),
+                      ),
+                      title: const Text('Pay with Stripe',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        _payment?.isProcessing ?? false
+                            ? 'Confirming your payment…'
+                            : 'UPI, cards, and net banking via Stripe',
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Text('Payment Method',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  const _MockMethodHint(),
+                ],
               ],
             ),
       bottomNavigationBar: Padding(
@@ -220,10 +337,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PrimaryButton(
-              label: 'Pay ${formatCurrency(amount)}',
+              label: _payment?.isProcessing ?? false
+                  ? 'Confirming payment…'
+                  : 'Pay ${formatCurrency(amount)}',
               icon: Icons.arrow_forward_rounded,
               isLoading: _paying,
-              onPressed: _pay,
+              onPressed: (_payment?.isProcessing ?? false) ? null : _pay,
             ),
             const SizedBox(height: 8),
             const Row(
@@ -243,44 +362,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 }
 
-class _MethodTile extends StatelessWidget {
-  const _MethodTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
+class _MockMethodHint extends StatelessWidget {
+  const _MockMethodHint();
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
-          width: selected ? 1.5 : 1,
-        ),
-      ),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: AppColors.surface,
-          child: Icon(icon, color: AppColors.primary),
+          child: Icon(Icons.payments_outlined, color: AppColors.primary),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
-        trailing: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_off,
-          color: selected ? AppColors.primary : AppColors.textSecondary,
-        ),
-        onTap: onTap,
+        title: const Text('Mock payment',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('Development mode — instant confirmation'),
       ),
     );
   }

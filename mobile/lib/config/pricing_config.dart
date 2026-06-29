@@ -6,6 +6,8 @@ class PricingConfig {
     required this.loyaltyPointValue,
     required this.loyaltyEarnRate,
     required this.referralBonusCredits,
+    required this.paymentProvider,
+    required this.stripePublishableKey,
   });
 
   final double platformCommissionRate;
@@ -13,6 +15,10 @@ class PricingConfig {
   final double loyaltyPointValue;
   final double loyaltyEarnRate;
   final int referralBonusCredits;
+  final String paymentProvider;
+  final String stripePublishableKey;
+
+  bool get usesStripe => paymentProvider.toUpperCase() == 'STRIPE';
 
   static const defaults = PricingConfig(
     platformCommissionRate: 0.05,
@@ -20,6 +26,8 @@ class PricingConfig {
     loyaltyPointValue: 0.1,
     loyaltyEarnRate: 0.075,
     referralBonusCredits: 300,
+    paymentProvider: 'MOCK',
+    stripePublishableKey: '',
   );
 
   factory PricingConfig.fromJson(Map<String, dynamic> json) {
@@ -31,6 +39,8 @@ class PricingConfig {
       loyaltyEarnRate: double.parse(json['loyaltyEarnRate'].toString()),
       referralBonusCredits:
           int.parse(json['referralBonusCredits'].toString()),
+      paymentProvider: json['paymentProvider'] as String? ?? 'MOCK',
+      stripePublishableKey: json['stripePublishableKey'] as String? ?? '',
     );
   }
 }
