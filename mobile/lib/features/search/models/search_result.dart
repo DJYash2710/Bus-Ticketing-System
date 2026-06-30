@@ -36,23 +36,50 @@ class ScheduleSearchItem {
     final bus = json['bus'] as Map<String, dynamic>;
     final route = json['route'] as Map<String, dynamic>;
     final summary = json['seatSummary'] as Map<String, dynamic>;
-    final amenities = bus['amenities'];
+    final departureTime =
+        DateTime.parse(json['departureTime'] as String).toLocal();
+    final durationMin = (route['durationMin'] as num?)?.toInt() ?? 0;
+    final arrivalRaw = json['arrivalTime'];
+    final arrivalTime = arrivalRaw != null
+        ? DateTime.parse(arrivalRaw as String).toLocal()
+        : departureTime.add(Duration(minutes: durationMin));
+
     return ScheduleSearchItem(
       scheduleId: (json['scheduleId'] as num).toInt(),
-      departureTime: DateTime.parse(json['departureTime'] as String).toLocal(),
-      arrivalTime: DateTime.parse(json['arrivalTime'] as String).toLocal(),
+      departureTime: departureTime,
+      arrivalTime: arrivalTime,
       basePrice: double.parse(json['basePrice'].toString()),
       busName: bus['name'] as String,
-      busType: bus['type'] as String,
-      amenities: amenities is List
-          ? amenities.map((e) => e.toString()).toList()
-          : const [],
+      busType: _formatBusType(bus),
+      amenities: _parseAmenities(bus['amenities']),
       availableSeats: (summary['availableSeats'] as num).toInt(),
       totalSeats: (summary['totalSeats'] as num).toInt(),
       fromCityName: (route['fromCity'] as Map)['name'] as String,
       toCityName: (route['toCity'] as Map)['name'] as String,
-      durationMin: (route['durationMin'] as num?)?.toInt() ?? 0,
+      durationMin: durationMin,
     );
+  }
+
+  static String _formatBusType(Map<String, dynamic> bus) {
+    final body =
+        (bus['bodyType'] as String?) ?? (bus['type'] as String?) ?? 'SEATER';
+    final hasAc = bus['hasAc'] as bool? ?? false;
+    final label = body.replaceAll('_', ' ');
+    return hasAc ? '$label AC' : label;
+  }
+
+  static List<String> _parseAmenities(dynamic amenities) {
+    if (amenities is List) {
+      return amenities.map((e) => e.toString()).toList();
+    }
+    if (amenities is String && amenities.trim().isNotEmpty) {
+      return amenities
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return const [];
   }
 }
 

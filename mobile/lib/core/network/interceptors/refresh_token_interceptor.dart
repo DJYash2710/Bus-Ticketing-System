@@ -14,7 +14,7 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
   final SecureStorageService _storage;
   final Dio _dio;
 
-  bool _isRefreshing = false;
+  Future<String>? _refreshFuture;
 
   @override
   Future<void> onError(
@@ -31,38 +31,12 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
       return handler.next(err);
     }
 
+    if (err.requestOptions.extra['skipAuthRefresh'] == true) {
+      return handler.next(err);
+    }
+
     try {
-      if (_isRefreshing) {
-        return handler.next(err);
-      }
-
-      _isRefreshing = true;
-      final refreshToken = await _storage.refreshToken;
-      if (refreshToken == null || refreshToken.isEmpty) {
-        await _storage.clearTokens();
-        return handler.next(err);
-      }
-
-      final response = await _dio.post<Map<String, dynamic>>(
-        ApiConstants.authRefresh,
-        data: {'refreshToken': refreshToken},
-        options: Options(extra: {'skipAuthRefresh': true}),
-      );
-
-      final data = response.data?['data'] as Map<String, dynamic>?;
-      final tokens = data?['tokens'] as Map<String, dynamic>?;
-      final accessToken = tokens?['accessToken'] as String?;
-      final newRefreshToken = tokens?['refreshToken'] as String?;
-
-      if (accessToken == null || newRefreshToken == null) {
-        await _storage.clearTokens();
-        return handler.next(err);
-      }
-
-      await _storage.saveTokens(
-        accessToken: accessToken,
-        refreshToken: newRefreshToken,
-      );
+      final accessToken = await _refreshAccessToken();
 
       final retryOptions = err.requestOptions;
       retryOptions.headers['Authorization'] = 'Bearer $accessToken';
@@ -80,8 +54,43 @@ class RefreshTokenInterceptor extends QueuedInterceptor {
         await _storage.clearTokens();
       }
       return handler.next(err);
-    } finally {
-      _isRefreshing = false;
     }
+  }
+
+  Future<String> _refreshAccessToken() {
+    return _refreshFuture ??= _performRefresh().whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  Future<String> _performRefresh() async {
+    final refreshToken = await _storage.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await _storage.clearTokens();
+      throw StateError('No refresh token');
+    }
+
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiConstants.authRefresh,
+      data: {'refreshToken': refreshToken},
+      options: Options(extra: {'skipAuthRefresh': true}),
+    );
+
+    final data = response.data?['data'] as Map<String, dynamic>?;
+    final tokens = data?['tokens'] as Map<String, dynamic>?;
+    final accessToken = tokens?['accessToken'] as String?;
+    final newRefreshToken = tokens?['refreshToken'] as String?;
+
+    if (accessToken == null || newRefreshToken == null) {
+      await _storage.clearTokens();
+      throw StateError('Refresh response missing tokens');
+    }
+
+    await _storage.saveTokens(
+      accessToken: accessToken,
+      refreshToken: newRefreshToken,
+    );
+
+    return accessToken;
   }
 }

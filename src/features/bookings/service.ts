@@ -45,6 +45,10 @@ export async function createBooking(
     throw new ApiError(400, "At least one seat number is required");
   }
 
+  if (uniqueSeatNumbers.length > 5) {
+    throw new ApiError(400, "You can book at most 5 seats per trip");
+  }
+
   const schedule = await prisma.schedule.findUnique({
     where: { id: input.scheduleId },
     include: {

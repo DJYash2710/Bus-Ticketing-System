@@ -70,7 +70,8 @@ export async function searchSchedules(input: SearchSchedulesInput) {
     },
   });
 
-  const results = schedules.map((schedule) => {
+  const results = schedules
+    .map((schedule) => {
     const totalSeats = schedule.seats.length;
     const availableSeats = schedule.seats.filter(
       (seat) => seat.status === SeatStatus.AVAILABLE,
@@ -100,7 +101,9 @@ export async function searchSchedules(input: SearchSchedulesInput) {
         id: schedule.bus.id,
         name: schedule.bus.name,
         registrationNo: schedule.bus.registrationNo,
-        type: schedule.bus.type,
+        bodyType: schedule.bus.bodyType,
+        hasAc: schedule.bus.hasAc,
+        layoutType: schedule.bus.layoutType,
         capacity: schedule.bus.capacity,
         amenities: schedule.bus.amenities,
       },
@@ -111,7 +114,8 @@ export async function searchSchedules(input: SearchSchedulesInput) {
         bookedSeats,
       },
     };
-  });
+  })
+    .filter((schedule) => schedule.seatSummary.availableSeats > 0);
 
   return {
     search: {

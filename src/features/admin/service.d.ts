@@ -16,7 +16,40 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
             id: number;
             phone: string | null;
         };
+        seats: ({
+            seat: {
+                row: number | null;
+                status: import(".prisma/client").$Enums.SeatStatus;
+                id: number;
+                deck: string | null;
+                col: number | null;
+                seatNumber: string;
+                scheduleId: number;
+                createdAt: Date;
+                updatedAt: Date;
+                heldUntil: Date | null;
+            };
+        } & {
+            id: number;
+            createdAt: Date;
+            bookingId: number;
+            seatId: number;
+        })[];
         schedule: {
+            bus: {
+                name: string;
+                id: number;
+                layoutType: import(".prisma/client").$Enums.BusLayoutType;
+                bodyType: import(".prisma/client").$Enums.BusBodyType;
+                hasAc: boolean;
+                operatorId: number | null;
+                registrationNo: string;
+                capacity: number;
+                createdAt: Date;
+                currentLayoutId: number | null;
+                amenities: string | null;
+                updatedAt: Date;
+            };
             route: {
                 fromCity: {
                     name: string;
@@ -47,50 +80,21 @@ export declare function listAdminBookings(input: ListAdminBookingsInput): Promis
                 updatedAt: Date;
                 estimatedDurationMinutes: number | null;
             };
-            bus: {
-                name: string;
-                id: number;
-                type: import(".prisma/client").$Enums.BusType;
-                operatorId: number | null;
-                registrationNo: string;
-                capacity: number;
-                createdAt: Date;
-                updatedAt: Date;
-                amenities: string | null;
-            };
         } & {
             status: import(".prisma/client").$Enums.ScheduleStatus;
             id: number;
             color: string | null;
             basePrice: Prisma.Decimal;
-            departureTime: Date;
             busId: number;
+            departureTime: Date;
             routeId: number;
             createdAt: Date;
             updatedAt: Date;
             arrivalTime: Date | null;
             recurrenceGroupId: string | null;
             isRecurrenceException: boolean;
+            busLayoutId: number | null;
         };
-        seats: ({
-            seat: {
-                row: number | null;
-                status: import(".prisma/client").$Enums.SeatStatus;
-                id: number;
-                scheduleId: number;
-                createdAt: Date;
-                updatedAt: Date;
-                seatNumber: string;
-                col: number | null;
-                deck: string | null;
-                heldUntil: Date | null;
-            };
-        } & {
-            id: number;
-            createdAt: Date;
-            bookingId: number;
-            seatId: number;
-        })[];
         payment: {
             status: import(".prisma/client").$Enums.PaymentStatus;
             id: number;
@@ -140,7 +144,40 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
         id: number;
         phone: string | null;
     };
+    seats: ({
+        seat: {
+            row: number | null;
+            status: import(".prisma/client").$Enums.SeatStatus;
+            id: number;
+            deck: string | null;
+            col: number | null;
+            seatNumber: string;
+            scheduleId: number;
+            createdAt: Date;
+            updatedAt: Date;
+            heldUntil: Date | null;
+        };
+    } & {
+        id: number;
+        createdAt: Date;
+        bookingId: number;
+        seatId: number;
+    })[];
     schedule: {
+        bus: {
+            name: string;
+            id: number;
+            layoutType: import(".prisma/client").$Enums.BusLayoutType;
+            bodyType: import(".prisma/client").$Enums.BusBodyType;
+            hasAc: boolean;
+            operatorId: number | null;
+            registrationNo: string;
+            capacity: number;
+            createdAt: Date;
+            currentLayoutId: number | null;
+            amenities: string | null;
+            updatedAt: Date;
+        };
         route: {
             fromCity: {
                 name: string;
@@ -171,50 +208,21 @@ export declare function getAdminBookingById(bookingId: number): Promise<{
             updatedAt: Date;
             estimatedDurationMinutes: number | null;
         };
-        bus: {
-            name: string;
-            id: number;
-            type: import(".prisma/client").$Enums.BusType;
-            operatorId: number | null;
-            registrationNo: string;
-            capacity: number;
-            createdAt: Date;
-            updatedAt: Date;
-            amenities: string | null;
-        };
     } & {
         status: import(".prisma/client").$Enums.ScheduleStatus;
         id: number;
         color: string | null;
         basePrice: Prisma.Decimal;
-        departureTime: Date;
         busId: number;
+        departureTime: Date;
         routeId: number;
         createdAt: Date;
         updatedAt: Date;
         arrivalTime: Date | null;
         recurrenceGroupId: string | null;
         isRecurrenceException: boolean;
+        busLayoutId: number | null;
     };
-    seats: ({
-        seat: {
-            row: number | null;
-            status: import(".prisma/client").$Enums.SeatStatus;
-            id: number;
-            scheduleId: number;
-            createdAt: Date;
-            updatedAt: Date;
-            seatNumber: string;
-            col: number | null;
-            deck: string | null;
-            heldUntil: Date | null;
-        };
-    } & {
-        id: number;
-        createdAt: Date;
-        bookingId: number;
-        seatId: number;
-    })[];
     payment: {
         status: import(".prisma/client").$Enums.PaymentStatus;
         id: number;

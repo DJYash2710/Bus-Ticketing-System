@@ -13,6 +13,10 @@ import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
 import { auditLogFrom } from "../../core/audit/auditLog.service.js";
 import type { AuditContext } from "../../core/audit/requestContext.js";
 import { cancelScheduleCascade } from "./cancelCascade.js";
+import {
+  cloneLayoutSeatsToSchedule,
+  createInitialLayoutForBus,
+} from "../bus-layout/service.js";
 
 export type RecurrenceInput = {
   frequency: "DAILY" | "WEEKLY" | "MONTHLY";
@@ -73,29 +77,58 @@ function assertBusOwnership(
   }
 }
 
-function generateSeats(capacity: number) {
-  const cols = ["A", "B", "C", "D"];
-  const seats: {
-    seatNumber: string;
-    row: number;
-    col: number;
-    deck: string;
-    status: SeatStatus;
-  }[] = [];
+async function createScheduleWithSeats(
+  tx: Prisma.TransactionClient,
+  data: {
+    routeId: number;
+    busId: number;
+    departureTime: Date;
+    arrivalTime: Date | null;
+    basePrice: number;
+    status: ScheduleStatus;
+    color: string;
+    recurrenceGroupId: string | null;
+    busLayoutId: number;
+  },
+) {
+  const created = await tx.schedule.create({
+    data: {
+      routeId: data.routeId,
+      busId: data.busId,
+      departureTime: data.departureTime,
+      arrivalTime: data.arrivalTime,
+      basePrice: data.basePrice,
+      status: data.status,
+      color: data.color,
+      recurrenceGroupId: data.recurrenceGroupId,
+      busLayoutId: data.busLayoutId,
+    },
+    include: scheduleInclude,
+  });
 
-  for (let r = 0; seats.length < capacity; r++) {
-    for (let c = 0; c < 4 && seats.length < capacity; c++) {
-      seats.push({
-        seatNumber: `${r + 1}${cols[c]}`,
-        row: r,
-        col: c,
-        deck: "LOWER",
-        status: SeatStatus.AVAILABLE,
-      });
-    }
+  await cloneLayoutSeatsToSchedule(tx, created.id, data.busLayoutId);
+
+  return formatSchedule(created);
+}
+
+async function resolveBusLayoutId(bus: {
+  id: number;
+  currentLayoutId: number | null;
+  layoutType: import("@prisma/client").BusLayoutType;
+  capacity: number;
+}) {
+  if (bus.currentLayoutId) {
+    return bus.currentLayoutId;
   }
 
-  return seats;
+  const layout = await createInitialLayoutForBus(
+    bus.id,
+    bus.layoutType,
+    bus.capacity,
+    undefined,
+    bus.bodyType,
+  );
+  return layout.id;
 }
 
 function formatSchedule<
@@ -257,49 +290,6 @@ function generateOccurrenceDates(
   return dates;
 }
 
-async function createScheduleWithSeats(
-  tx: Prisma.TransactionClient,
-  data: {
-    routeId: number;
-    busId: number;
-    departureTime: Date;
-    arrivalTime: Date | null;
-    basePrice: number;
-    status: ScheduleStatus;
-    color: string;
-    recurrenceGroupId: string | null;
-    busCapacity: number;
-  },
-) {
-  const created = await tx.schedule.create({
-    data: {
-      routeId: data.routeId,
-      busId: data.busId,
-      departureTime: data.departureTime,
-      arrivalTime: data.arrivalTime,
-      basePrice: data.basePrice,
-      status: data.status,
-      color: data.color,
-      recurrenceGroupId: data.recurrenceGroupId,
-    },
-    include: scheduleInclude,
-  });
-
-  const seatDefs = generateSeats(data.busCapacity);
-  await tx.seat.createMany({
-    data: seatDefs.map((seat) => ({
-      scheduleId: created.id,
-      seatNumber: seat.seatNumber,
-      row: seat.row,
-      col: seat.col,
-      deck: seat.deck,
-      status: seat.status,
-    })),
-  });
-
-  return formatSchedule(created);
-}
-
 export async function createSchedule(
   input: CreateScheduleInput,
   caller: AuthUser,
@@ -322,6 +312,7 @@ export async function createSchedule(
   const color = input.color ?? "#4F46E5";
   const status = input.status ?? ScheduleStatus.ACTIVE;
   const durationMs = durationMinutes * 60 * 1000;
+  const busLayoutId = await resolveBusLayoutId(bus);
 
   if (!input.recurrence) {
     const conflict = await findConflictingSchedule(
@@ -346,7 +337,7 @@ export async function createSchedule(
         status,
         color,
         recurrenceGroupId: null,
-        busCapacity: bus.capacity,
+        busLayoutId,
       }),
     );
 
@@ -408,7 +399,7 @@ export async function createSchedule(
         status,
         color,
         recurrenceGroupId,
-        busCapacity: bus.capacity,
+        busLayoutId,
       });
       created.push(row);
     }

@@ -15,6 +15,14 @@ bool isStripeUserCancellation(Object error) {
 }
 
 String stripePaymentErrorMessage(Object error) {
+  final message = error.toString();
+  if (message.contains('StripeConfigException') ||
+      message.contains('Stripe SDK is not configured') ||
+      message.contains('publishable key')) {
+    return 'Stripe is not set up on this device. Add STRIPE_PUBLISHABLE_KEY to '
+        'the API .env, restart the server, reopen the app, then try again. '
+        'Or set PAYMENT_PROVIDER=MOCK for local testing.';
+  }
   if (error is StripeException) {
     return error.error.localizedMessage ??
         error.error.message ??

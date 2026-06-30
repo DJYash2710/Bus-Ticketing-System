@@ -1,9 +1,6 @@
 // src/config/env.ts
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config();
 function readPositiveInt(value, fallback) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -25,16 +22,28 @@ export const env = {
         enabled: process.env.RATE_LIMIT_ENABLED !== 'false',
         strict: {
             windowMs: readPositiveInt(process.env.RATE_LIMIT_STRICT_WINDOW_MS, 15 * 60 * 1000),
-            max: readPositiveInt(process.env.RATE_LIMIT_STRICT_MAX, 950),
+            max: readPositiveInt(process.env.RATE_LIMIT_STRICT_MAX, 10),
         },
         moderate: {
             windowMs: readPositiveInt(process.env.RATE_LIMIT_MODERATE_WINDOW_MS, 60 * 1000),
-            max: readPositiveInt(process.env.RATE_LIMIT_MODERATE_MAX, 950),
+            max: readPositiveInt(process.env.RATE_LIMIT_MODERATE_MAX, 60),
         },
     },
     stripe: {
         secretKey: process.env.STRIPE_SECRET_KEY || '',
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
     },
+    paymentProvider: normalizePaymentProvider(process.env.PAYMENT_PROVIDER),
 };
+function normalizePaymentProvider(value) {
+    const normalized = (value || 'MOCK').trim().toUpperCase();
+    if (normalized === 'STRIPE') {
+        return 'STRIPE';
+    }
+    if (normalized !== 'MOCK' && normalized.length > 0) {
+        throw new Error(`Invalid PAYMENT_PROVIDER "${value}". Expected MOCK or STRIPE.`);
+    }
+    return 'MOCK';
+}
 //# sourceMappingURL=env.js.map

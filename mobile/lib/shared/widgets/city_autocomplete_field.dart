@@ -30,6 +30,7 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
   List<City> _options = [];
   bool _loading = false;
   bool _showDropdown = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -54,7 +55,10 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
   }
 
   Future<void> _loadOptions(String query) async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
     try {
       final cities = await widget.api.list(search: query.isEmpty ? null : query);
       if (!mounted) return;
@@ -63,7 +67,11 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
         _loading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorMessage = 'Could not load cities. Check your connection.';
+      });
     }
   }
 
@@ -115,6 +123,14 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
           },
           onChanged: _onQueryChanged,
         ),
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _errorMessage!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+            ),
+          ),
         if (_showDropdown && _options.isNotEmpty)
           Card(
             margin: const EdgeInsets.only(top: 4),

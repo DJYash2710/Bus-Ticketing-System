@@ -31,7 +31,7 @@ class SearchResultsScreen extends ConsumerStatefulWidget {
 class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   _SortOption _sort = _SortOption.departureEarly;
   String? _busTypeFilter;
-  bool _hideSoldOut = false;
+  bool _hideSoldOut = true;
 
   List<ScheduleSearchItem> _applyFilters(List<ScheduleSearchItem> items) {
     var filtered = items;

@@ -10,6 +10,12 @@ import 'app.dart';
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   EnvConfig.init();
+  if (kDebugMode) {
+    developer.log(
+      'API_BASE_URL=${EnvConfig.apiBaseUrl}',
+      name: 'EnvConfig',
+    );
+  }
   if (kDebugMode && EnvConfig.usesLocalhost) {
     developer.log(
       'API_BASE_URL is ${EnvConfig.apiBaseUrl}. On a physical device this only '

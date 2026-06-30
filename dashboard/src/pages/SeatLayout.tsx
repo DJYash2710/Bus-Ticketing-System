@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Armchair, BusFront, Save } from 'lucide-react'
+import { Armchair, Save } from 'lucide-react'
 import { listSchedules } from '../api/schedules'
 import { listSeatsBySchedule, updateSeatStatus } from '../api/seats'
 import { getErrorMessage } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { BusLayoutDiagram } from '../components/BusLayoutDiagram'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StatCard } from '../components/StatCard'
@@ -14,34 +16,29 @@ import type { Seat, SeatStatus } from '../types'
 
 const CYCLE: SeatStatus[] = ['AVAILABLE', 'HELD', 'BOOKED']
 
-function seatClass(status: SeatStatus, selected: boolean) {
-  if (selected) {
-    return 'border-brand bg-brand text-white shadow-md ring-2 ring-brand-light'
+function nextStatus(current: SeatStatus, operatorMode: boolean): SeatStatus {
+  if (operatorMode) {
+    return current === 'AVAILABLE' ? 'HELD' : 'AVAILABLE'
   }
-  switch (status) {
-    case 'AVAILABLE':
-      return 'border-slate-200 bg-white text-slate-700 hover:border-brand-muted hover:bg-brand-light/30'
-    case 'HELD':
-      return 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-    case 'BOOKED':
-      return 'border-slate-600 bg-slate-600 text-white cursor-not-allowed opacity-90'
-    default:
-      return 'border-slate-200 bg-white text-slate-700'
-  }
-}
-
-function nextStatus(current: SeatStatus): SeatStatus {
   const idx = CYCLE.indexOf(current)
   return CYCLE[(idx + 1) % CYCLE.length]
 }
 
 export function SeatLayout() {
   const { showToast } = useToast()
+  const { user, hasRole } = useAuth()
+  const isOperator = user?.role === 'OPERATOR'
   const queryClient = useQueryClient()
   const [scheduleId, setScheduleId] = useState<number | ''>('')
   const [localSeats, setLocalSeats] = useState<Seat[]>([])
   const [selectedSeatId, setSelectedSeatId] = useState<number | null>(null)
   const [dirty, setDirty] = useState(false)
+
+  const canEditSeat = (seat: Seat) => {
+    if (hasRole('ADMIN')) return true
+    if (isOperator && seat.status === 'BOOKED') return false
+    return true
+  }
 
   const schedulesQuery = useQuery({
     queryKey: ['schedules'],
@@ -58,12 +55,10 @@ export function SeatLayout() {
   const selectedSeat = localSeats.find((s) => s.id === selectedSeatId) ?? null
 
   useEffect(() => {
-    if (seatsQuery.data?.seats) {
-      setLocalSeats(seatsQuery.data.seats)
-      setSelectedSeatId(null)
-      setDirty(false)
-    }
-  }, [seatsQuery.data])
+    if (!seatsQuery.data?.seats || dirty) return
+    setLocalSeats(seatsQuery.data.seats)
+    setSelectedSeatId(null)
+  }, [seatsQuery.data, dirty])
 
   useEffect(() => {
     if (!scheduleId && schedulesQuery.data?.[0]) {
@@ -71,19 +66,26 @@ export function SeatLayout() {
     }
   }, [scheduleId, schedulesQuery.data])
 
+  useEffect(() => {
+    if (!scheduleId) return
+    setLocalSeats([])
+    setSelectedSeatId(null)
+    setDirty(false)
+  }, [scheduleId])
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const original = seatsQuery.data?.seats ?? []
       const changed = localSeats.filter((s) => {
         const orig = original.find((o) => o.id === s.id)
-        return orig && orig.status !== s.status
+        return orig && orig.status !== s.status && canEditSeat(orig)
       })
       await Promise.all(changed.map((s) => updateSeatStatus(s.id, s.status)))
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['seats', scheduleId] })
       setDirty(false)
-      showToast('Seat layout saved', 'success')
+      showToast('Bus layout saved', 'success')
     },
     onError: (err) => showToast(getErrorMessage(err), 'error'),
   })
@@ -99,23 +101,14 @@ export function SeatLayout() {
     }
   }, [seatsQuery.data?.summary, localSeats])
 
-  const grid = useMemo(() => {
-    const maxRow = Math.max(...localSeats.map((s) => s.row ?? 0), 0)
-    const maxCol = Math.max(...localSeats.map((s) => s.col ?? 0), 0)
-    const cells: (Seat | null)[][] = []
-    for (let r = 0; r <= maxRow; r++) {
-      const row: (Seat | null)[] = []
-      for (let c = 0; c <= maxCol; c++) {
-        row.push(localSeats.find((s) => s.row === r && s.col === c) ?? null)
-      }
-      cells.push(row)
-    }
-    return cells
-  }, [localSeats])
-
   function handleSeatClick(seat: Seat) {
+    if (!canEditSeat(seat)) {
+      showToast('Booked seats cannot be changed', 'error')
+      return
+    }
+
     setSelectedSeatId(seat.id)
-    const newStatus = nextStatus(seat.status)
+    const newStatus = nextStatus(seat.status, isOperator)
     setLocalSeats((prev) =>
       prev.map((s) => (s.id === seat.id ? { ...s, status: newStatus } : s)),
     )
@@ -127,8 +120,8 @@ export function SeatLayout() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Seat Layout Viewer"
-        subtitle="View and manage seat availability for a selected schedule."
+        title="Bus Layout"
+        subtitle="Full vehicle diagram with aisle, exits, and seat availability for the selected schedule."
       />
 
       {!hasSchedules && !schedulesQuery.isLoading ? (
@@ -162,13 +155,17 @@ export function SeatLayout() {
             </div>
             {selectedSchedule?.bus && (
               <p className="text-sm text-slate-500">
-                Vehicle: <span className="font-medium text-slate-700">{selectedSchedule.bus.name}</span>
+                Vehicle:{' '}
+                <span className="font-medium text-slate-700">{selectedSchedule.bus.name}</span>
+                {' · '}
+                {selectedSchedule.bus.bodyType.replace('_', ' ')}
+                {selectedSchedule.bus.hasAc ? ' · AC' : ''}
               </p>
             )}
           </div>
 
           {seatsQuery.isLoading ? (
-            <div className="card p-12 text-center text-sm text-slate-500">Loading seat map...</div>
+            <div className="card p-12 text-center text-sm text-slate-500">Loading bus layout...</div>
           ) : seatsQuery.isError ? (
             <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {getErrorMessage(seatsQuery.error)}
@@ -178,52 +175,35 @@ export function SeatLayout() {
               <div className="card p-6">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
-                    <h2 className="font-semibold text-slate-900">Vehicle Layout</h2>
+                    <h2 className="font-semibold text-slate-900">Vehicle diagram</h2>
                     <p className="text-xs text-slate-500">
-                      {selectedSchedule?.bus?.name ?? 'Bus'} · Capacity {summary.total}
+                      {selectedSchedule?.bus?.name ?? 'Bus'} · {summary.total} seats
                     </p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                    Capacity: {summary.total}
-                  </span>
                 </div>
 
-                <div className="mb-4 flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-4 py-2 text-xs text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <BusFront className="h-3.5 w-3.5" />
-                    Front
-                  </span>
-                  <span>Driver</span>
+                <div className="overflow-x-auto">
+                <BusLayoutDiagram
+                  seats={localSeats}
+                  bus={selectedSchedule?.bus}
+                  layout={seatsQuery.data?.layout}
+                  selectedSeatId={selectedSeatId}
+                  onSeatClick={handleSeatClick}
+                  canEditSeat={canEditSeat}
+                />
                 </div>
 
-                <div className="mx-auto flex max-w-lg flex-col gap-2">
-                  {grid.map((row, ri) => (
-                    <div key={ri} className="flex justify-center gap-2">
-                      {row.map((seat, ci) =>
-                        seat ? (
-                          <button
-                            key={seat.id}
-                            type="button"
-                            onClick={() => handleSeatClick(seat)}
-                            title={seatStatusLabel(seat.status)}
-                            className={`flex h-11 w-11 items-center justify-center rounded-lg border text-xs font-semibold transition ${seatClass(seat.status, selectedSeatId === seat.id)}`}
-                          >
-                            {seat.seatNumber}
-                          </button>
-                        ) : (
-                          <div key={ci} className="h-11 w-11" />
-                        ),
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                  {isOperator && (
+                    <p className="text-xs text-slate-500">
+                      Booked seats are locked and cannot be edited.
+                    </p>
+                  )}
                   <button
                     type="button"
                     disabled={!dirty || saveMutation.isPending}
                     onClick={() => saveMutation.mutate()}
-                    className="btn-primary disabled:opacity-40"
+                    className="btn-primary ml-auto disabled:opacity-40"
                   >
                     <Save className="h-4 w-4" />
                     {saveMutation.isPending ? 'Saving...' : 'Save changes'}
@@ -260,7 +240,7 @@ export function SeatLayout() {
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="h-4 w-4 rounded bg-slate-600" />
-                      Booked
+                      Booked (locked for operators)
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="h-4 w-4 rounded bg-brand" />
@@ -288,7 +268,13 @@ export function SeatLayout() {
                         </dd>
                       </div>
                     </dl>
-                    <p className="mt-3 text-xs text-slate-400">Tap a seat to cycle its status.</p>
+                    <p className="mt-3 text-xs text-slate-400">
+                      {canEditSeat(selectedSeat)
+                        ? isOperator
+                          ? 'Tap an available or held seat to toggle between those states.'
+                          : 'Tap a seat to cycle its status (available → held → booked).'
+                        : 'This seat is booked and cannot be modified.'}
+                    </p>
                   </div>
                 )}
               </div>

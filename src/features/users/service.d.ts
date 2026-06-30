@@ -13,10 +13,10 @@ export declare function getUserProfile(userId: number): Promise<{
     role: import(".prisma/client").$Enums.UserRole;
     isActive: boolean;
     phone: string | null;
-    referralCode: string | null;
-    creditsBalance: number;
     createdAt: Date;
     updatedAt: Date;
+    referralCode: string | null;
+    creditsBalance: number;
 }>;
 export declare function updateUserProfile(userId: number, input: UpdateProfileInput): Promise<{
     name: string;
@@ -24,9 +24,9 @@ export declare function updateUserProfile(userId: number, input: UpdateProfileIn
     id: number;
     role: import(".prisma/client").$Enums.UserRole;
     phone: string | null;
+    updatedAt: Date;
     referralCode: string | null;
     creditsBalance: number;
-    updatedAt: Date;
 }>;
 export declare function changeUserPassword(userId: number, input: ChangePasswordInput): Promise<{
     message: string;

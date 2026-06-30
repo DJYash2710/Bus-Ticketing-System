@@ -17,8 +17,10 @@ class LoggingInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    final status = err.response?.statusCode;
+    final statusLabel = status != null ? ' $status' : '';
     appLogger.e(
-      '✗ ${err.requestOptions.method} ${err.requestOptions.uri}',
+      '✗$statusLabel ${err.requestOptions.method} ${err.requestOptions.uri}',
       error: err.message,
     );
     handler.next(err);

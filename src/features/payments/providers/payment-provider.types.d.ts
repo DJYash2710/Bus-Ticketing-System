@@ -19,6 +19,18 @@ export type CreateProviderPaymentResult = {
 export type RetrieveProviderPaymentResult = {
     providerRef: string;
     status: ProviderPaymentStatus;
+    /** Raw Stripe PaymentIntent.status (e.g. processing, requires_capture). */
+    stripeStatus: string;
+    rawResponse: string;
+};
+export type RefundPaymentInput = {
+    paymentIntentId: string;
+    /** Used for Stripe idempotency — one refund attempt per payment. */
+    idempotencyKey: string;
+    reason?: string;
+};
+export type RefundPaymentResult = {
+    refundId: string;
     rawResponse: string;
 };
 export interface PaymentProvider {

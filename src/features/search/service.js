@@ -23,11 +23,16 @@ export async function searchSchedules(input) {
     start.setHours(0, 0, 0, 0);
     const end = new Date(input.date);
     end.setHours(23, 59, 59, 999);
+    const now = new Date();
+    let minDeparture = start;
+    if (now >= start && now <= end) {
+        minDeparture = now;
+    }
     const schedules = await prisma.schedule.findMany({
         where: {
             status: ScheduleStatus.ACTIVE,
             departureTime: {
-                gte: start,
+                gte: minDeparture,
                 lte: end,
             },
             route: {
@@ -72,7 +77,9 @@ export async function searchSchedules(input) {
                 id: schedule.bus.id,
                 name: schedule.bus.name,
                 registrationNo: schedule.bus.registrationNo,
-                type: schedule.bus.type,
+                bodyType: schedule.bus.bodyType,
+                hasAc: schedule.bus.hasAc,
+                layoutType: schedule.bus.layoutType,
                 capacity: schedule.bus.capacity,
                 amenities: schedule.bus.amenities,
             },
@@ -83,7 +90,7 @@ export async function searchSchedules(input) {
                 bookedSeats,
             },
         };
-    });
+    }).filter((schedule) => schedule.seatSummary.availableSeats > 0);
     return {
         search: {
             fromCity,

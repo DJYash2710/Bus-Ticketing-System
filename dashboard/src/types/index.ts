@@ -1,11 +1,20 @@
 export type UserRole = 'USER' | 'ADMIN' | 'OPERATOR'
 
-export type BusType =
-  | 'SEATER'
-  | 'SLEEPER'
-  | 'SEMI_SLEEPER'
-  | 'AC'
-  | 'NON_AC'
+export type BusBodyType = 'SEATER' | 'SLEEPER' | 'SEMI_SLEEPER'
+
+export type BusLayoutType = 'SEATER_2_2' | 'SEATER_2_1' | 'SLEEPER_1_1'
+
+export type LayoutElementType =
+  | 'SEAT'
+  | 'DRIVER'
+  | 'EXIT_FRONT'
+  | 'EXIT_REAR'
+  | 'EXIT_FIRE'
+  | 'WASHROOM'
+  | 'ENGINE'
+  | 'ROOF_EXIT'
+
+export type BusDeck = 'LOWER' | 'UPPER'
 
 export type ScheduleStatus = 'ACTIVE' | 'CANCELLED' | 'COMPLETED'
 
@@ -111,10 +120,40 @@ export interface Bus {
   registrationNo: string
   name: string
   capacity: number
-  type: BusType
+  bodyType: BusBodyType
+  layoutType: BusLayoutType
+  hasAc: boolean
+  currentLayoutId?: number | null
   amenities: string[]
   createdAt: string
   updatedAt: string
+}
+
+export interface BusLayoutElement {
+  id: number
+  layoutId: number
+  type: LayoutElementType
+  deck: BusDeck
+  row: number
+  col: number
+  label: string | null
+  seatNumber: string | null
+}
+
+export interface BusLayout {
+  id: number
+  busId: number
+  version: number
+  layoutType: BusLayoutType
+  seatsLeft: number
+  seatsRight: number
+  hasUpperDeck: boolean
+  lowerDeckCapacity?: number | null
+  upperDeckCapacity?: number | null
+  seatCapacity: number
+  createdByUserId: number | null
+  createdAt: string
+  elements: BusLayoutElement[]
 }
 
 export interface Schedule {
@@ -159,6 +198,22 @@ export interface Seat {
   updatedAt: string
 }
 
+export interface SeatMapLayoutSnapshot {
+  seatsLeft: number
+  seatsRight: number
+  layoutType: BusLayoutType
+  version: number
+  fromSnapshot: boolean
+  hasUpperDeck: boolean
+  capElements: Array<{
+    type: LayoutElementType
+    deck: BusDeck
+    row: number
+    col: number
+    label: string | null
+  }>
+}
+
 export interface SeatMapResponse {
   schedule: {
     id: number
@@ -181,6 +236,7 @@ export interface SeatMapResponse {
     booked: number
   }
   seats: Seat[]
+  layout: SeatMapLayoutSnapshot | null
 }
 
 export interface BookingSeat {

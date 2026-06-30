@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../config/app_config.dart';
-import '../../config/providers/pricing_providers.dart';
+import '../../../core/bootstrap/bootstrap_provider.dart';
 import '../../../core/constants/bus_facts.dart';
-import '../../../core/routing/route_paths.dart';
-import '../providers/auth_providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -16,33 +13,16 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  static const _minDisplayDuration = Duration(seconds: 2);
-
   late final String _fact;
 
   @override
   void initState() {
     super.initState();
     _fact = BusFacts.random();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
-  }
-
-  Future<void> _bootstrap() async {
-    final startedAt = DateTime.now();
-    await Future.wait([
-      ref.read(pricingConfigProvider.notifier).loadFromApi(),
-      ref.read(authStateProvider.notifier).restoreSession(),
-    ]);
-
-    final elapsed = DateTime.now().difference(startedAt);
-    if (elapsed < _minDisplayDuration) {
-      await Future<void>.delayed(_minDisplayDuration - elapsed);
-    }
-
-    if (!mounted) return;
-
-    final isAuthenticated = ref.read(authStateProvider).isAuthenticated;
-    context.go(isAuthenticated ? RoutePaths.search : RoutePaths.login);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(bootstrapProvider.notifier).run();
+    });
   }
 
   @override
@@ -56,9 +36,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Icon(Icons.directions_bus_rounded, size: 72, color: teal),
+                Image.asset(
+                  'assets/TealTransit.png',
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   AppConfig.appName,
@@ -70,13 +57,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                       ),
                 ),
                 const SizedBox(height: 40),
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: teal,
-                  ),
+                Icon(
+                  Icons.more_horiz_rounded,
+                  size: 28,
+                  color: teal.withValues(alpha: 0.45),
                 ),
                 const SizedBox(height: 32),
                 Text(

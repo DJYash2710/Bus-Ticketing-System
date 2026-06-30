@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,11 +22,15 @@ import '../../features/seats/screens/seat_selection_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import 'route_guards.dart';
 import 'route_paths.dart';
+import 'router_refresh.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  final refresh = ref.watch(routerRefreshListenableProvider);
+
+  final router = GoRouter(
     initialLocation: RoutePaths.splash,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
+    refreshListenable: refresh,
     redirect: RouteGuards.authRedirect,
     routes: [
       GoRoute(
@@ -138,4 +143,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  ref.onDispose(router.dispose);
+  return router;
 });

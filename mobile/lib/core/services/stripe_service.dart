@@ -23,6 +23,7 @@ class StripeService {
   Future<void> configure(PricingConfig config) async {
     final key = config.stripePublishableKey.trim();
     if (config.paymentProvider.toUpperCase() != 'STRIPE' || key.isEmpty) {
+      _initialized = false;
       return;
     }
 
@@ -35,8 +36,28 @@ class StripeService {
     _initialized = true;
 
     if (kDebugMode) {
-      debugPrint('Stripe SDK configured for ${config.paymentProvider}');
+      debugPrint('Stripe SDK configured (${key.substring(0, 12)}...)');
     }
+  }
+
+  /// Ensures the native Stripe SDK has a publishable key before Payment Sheet.
+  Future<void> ensureConfigured(PricingConfig config) async {
+    if (_initialized && Stripe.publishableKey.isNotEmpty) {
+      return;
+    }
+    await configure(config);
+    if (!_initialized || Stripe.publishableKey.isEmpty) {
+      throw StateError(_missingKeyMessage(config));
+    }
+  }
+
+  static String _missingKeyMessage(PricingConfig config) {
+    if (config.paymentProvider.toUpperCase() != 'STRIPE') {
+      return 'Server is not using Stripe (PAYMENT_PROVIDER=${config.paymentProvider}). '
+          'Use mock checkout or set PAYMENT_PROVIDER=STRIPE in the API .env.';
+    }
+    return 'Stripe publishable key is missing. Add STRIPE_PUBLISHABLE_KEY=pk_test_... '
+        'to the API .env, restart npm run dev, then fully restart the app.';
   }
 
   Future<void> presentPaymentSheet({required String clientSecret}) async {
@@ -44,6 +65,13 @@ class StripeService {
       throw UnsupportedError(
         'Stripe Payment Sheet requires an Android or iOS device. '
         'Run the app on a phone/emulator, not Windows or web.',
+      );
+    }
+
+    if (!_initialized || Stripe.publishableKey.isEmpty) {
+      throw StateError(
+        'Stripe SDK is not configured. Restart the app after the API is reachable '
+        'and STRIPE_PUBLISHABLE_KEY is set.',
       );
     }
 

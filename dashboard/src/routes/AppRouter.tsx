@@ -6,6 +6,7 @@ import { Login } from '../pages/Login'
 import { Overview } from '../pages/Overview'
 import { Buses } from '../pages/Buses'
 import { Schedules } from '../pages/Schedules'
+import { BusLayoutBuilder } from '../pages/BusLayoutBuilder'
 import { SeatLayout } from '../pages/SeatLayout'
 import { Bookings } from '../pages/Bookings'
 import { Profile } from '../pages/Profile'
@@ -27,6 +28,7 @@ export function AppRouter() {
         <Route element={<DashboardLayout />}>
           <Route index element={<Overview />} />
           <Route path="buses" element={<Buses />} />
+          <Route path="buses/:busId/layout" element={<BusLayoutBuilder />} />
           <Route path="schedules" element={<Schedules />} />
           <Route path="seats" element={<SeatLayout />} />
           <Route path="bookings" element={<Bookings />} />

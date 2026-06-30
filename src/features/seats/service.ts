@@ -1,4 +1,4 @@
-import { SeatStatus } from "@prisma/client";
+import { LayoutElementType, SeatStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import type { AuthUser } from "../../core/middleware/auth.middleware.js";
@@ -32,7 +32,26 @@ export async function listSeatsBySchedule(filters: ListSeatsFilters) {
           toCity: true,
         },
       },
-      bus: true,
+      bus: {
+        include: {
+          currentLayout: {
+            include: {
+              elements: {
+                where: { type: { not: LayoutElementType.SEAT } },
+                orderBy: [{ row: "asc" }, { col: "asc" }],
+              },
+            },
+          },
+        },
+      },
+      busLayout: {
+        include: {
+          elements: {
+            where: { type: { not: LayoutElementType.SEAT } },
+            orderBy: [{ row: "asc" }, { col: "asc" }],
+          },
+        },
+      },
     },
   });
 
@@ -60,6 +79,28 @@ export async function listSeatsBySchedule(filters: ListSeatsFilters) {
     booked: seats.filter((s) => s.status === SeatStatus.BOOKED).length,
   };
 
+  const snapshotLayout = schedule.busLayout;
+  const fallbackLayout = schedule.bus.currentLayout;
+  const layoutRecord = snapshotLayout ?? fallbackLayout;
+
+  const layout = layoutRecord
+    ? {
+        seatsLeft: layoutRecord.seatsLeft,
+        seatsRight: layoutRecord.seatsRight,
+        layoutType: layoutRecord.layoutType,
+        version: layoutRecord.version,
+        fromSnapshot: !!snapshotLayout,
+        hasUpperDeck: layoutRecord.hasUpperDeck,
+        capElements: layoutRecord.elements.map((el) => ({
+          type: el.type,
+          deck: el.deck,
+          row: el.row,
+          col: el.col,
+          label: el.label,
+        })),
+      }
+    : null;
+
   return {
     schedule: {
       id: schedule.id,
@@ -77,6 +118,7 @@ export async function listSeatsBySchedule(filters: ListSeatsFilters) {
     },
     summary,
     seats,
+    layout,
   };
 }
 
@@ -138,6 +180,23 @@ export async function updateSeatStatus(
       throw new ApiError(
         403,
         "You do not have permission to update this seat",
+      );
+    }
+
+    if (
+      seat.status === SeatStatus.BOOKED ||
+      seat.bookingSeats.length > 0
+    ) {
+      throw new ApiError(
+        403,
+        "Operators cannot change the status of a booked seat",
+      );
+    }
+
+    if (input.status === SeatStatus.BOOKED) {
+      throw new ApiError(
+        403,
+        "Operators cannot manually mark seats as booked",
       );
     }
   }

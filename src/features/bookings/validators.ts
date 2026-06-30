@@ -1,11 +1,14 @@
 import Joi from "joi";
 
+export const MAX_SEATS_PER_BOOKING = 5;
+
 export const createBookingSchema = {
   body: Joi.object({
     scheduleId: Joi.number().integer().required(),
     seatNumbers: Joi.array()
       .items(Joi.string().trim().min(1))
       .min(1)
+      .max(MAX_SEATS_PER_BOOKING)
       .required(),
     boardingPoint: Joi.string().trim().min(2).required(),
     droppingPoint: Joi.string().trim().min(2).required(),

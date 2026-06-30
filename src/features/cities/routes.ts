@@ -14,9 +14,9 @@ import { requireRole } from "../../core/middleware/role.middleware.js";
 
 const router = Router();
 
-// Anyone logged in can list/search cities (you can relax later if you want)
-router.get("/", authMiddleware, listCitiesController);
-router.get("/:id", authMiddleware, getCityByIdController);
+// Public read — city list is reference data for search autocomplete
+router.get("/", listCitiesController);
+router.get("/:id", getCityByIdController);
 
 // Admin-only modifications
 router.post(

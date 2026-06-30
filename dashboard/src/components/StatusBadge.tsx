@@ -96,8 +96,8 @@ export function seatStatusVariant(status: string): BadgeVariant {
   }
 }
 
-export function busTypeVariant(type: string): BadgeVariant {
-  switch (type) {
+export function busTypeVariant(bodyType: string): BadgeVariant {
+  switch (bodyType) {
     case 'SLEEPER':
       return 'warning'
     case 'SEMI_SLEEPER':

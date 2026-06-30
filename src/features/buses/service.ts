@@ -1,4 +1,8 @@
 // src/features/buses/service.ts
+import {
+  BusBodyType,
+  BusLayoutType,
+} from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import type { AuthUser } from "../../core/middleware/auth.middleware.js";
@@ -6,16 +10,21 @@ import {
   isOperator,
   requireOperatorFleetId,
 } from "../../core/utils/operatorScope.js";
-import type { BusType } from "@prisma/client";
 import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
 import { auditLogFrom } from "../../core/audit/auditLog.service.js";
 import type { AuditContext } from "../../core/audit/requestContext.js";
+import { createInitialLayoutForBus } from "../bus-layout/service.js";
+import { defaultLayoutTypeForBody } from "../../lib/bus-layout/templates.js";
 
 type CreateBusInput = {
   registrationNo: string;
   name: string;
   capacity: number;
-  type: BusType | string;
+  bodyType?: BusBodyType | string;
+  layoutType?: BusLayoutType | string;
+  hasAc?: boolean;
+  /** @deprecated use bodyType + hasAc */
+  type?: string;
   amenities?: string[];
   operatorId?: number | null;
 };
@@ -23,10 +32,92 @@ type CreateBusInput = {
 type UpdateBusInput = {
   name?: string;
   capacity?: number;
-  type?: BusType | string;
+  bodyType?: BusBodyType | string;
+  layoutType?: BusLayoutType | string;
+  hasAc?: boolean;
+  /** @deprecated use bodyType + hasAc */
+  type?: string;
   amenities?: string[];
   operatorId?: number | null;
 };
+
+type ParsedBusFields = {
+  bodyType: BusBodyType;
+  layoutType: BusLayoutType;
+  hasAc: boolean;
+};
+
+function parseBusFields(input: {
+  bodyType?: string;
+  layoutType?: string;
+  hasAc?: boolean;
+  type?: string;
+}): ParsedBusFields {
+  if (input.bodyType) {
+    const bodyType = input.bodyType as BusBodyType;
+    return {
+      bodyType,
+      hasAc: input.hasAc ?? false,
+      layoutType:
+        (input.layoutType as BusLayoutType) ??
+        defaultLayoutTypeForBody(bodyType),
+    };
+  }
+
+  switch (input.type) {
+    case "SLEEPER":
+      return {
+        bodyType: BusBodyType.SLEEPER,
+        hasAc: false,
+        layoutType: BusLayoutType.SLEEPER_1_1,
+      };
+    case "SEMI_SLEEPER":
+      return {
+        bodyType: BusBodyType.SEMI_SLEEPER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_1,
+      };
+    case "AC":
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: true,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+    case "NON_AC":
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+    case "SEATER":
+    default:
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+  }
+}
+
+function formatBus(bus: {
+  id: number;
+  operatorId: number | null;
+  registrationNo: string;
+  name: string;
+  bodyType: BusBodyType;
+  layoutType: BusLayoutType;
+  hasAc: boolean;
+  capacity: number;
+  amenities: string | null;
+  currentLayoutId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    ...bus,
+    amenities: bus.amenities ? bus.amenities.split(",") : [],
+  };
+}
 
 function assertBusOwnership(bus: { operatorId: number | null }, caller: AuthUser) {
   if (!isOperator(caller)) {
@@ -57,16 +148,30 @@ export async function createBus(
     ? requireOperatorFleetId(caller)
     : (input.operatorId ?? null);
 
-  const bus = await prisma.bus.create({
+  const fields = parseBusFields(input);
+
+  const created = await prisma.bus.create({
     data: {
       registrationNo: input.registrationNo,
       name: input.name,
       capacity: input.capacity,
-      type: input.type as BusType,
+      bodyType: fields.bodyType,
+      layoutType: fields.layoutType,
+      hasAc: fields.hasAc,
       amenities: input.amenities ? input.amenities.join(",") : null,
       operatorId,
     },
   });
+
+  await createInitialLayoutForBus(
+    created.id,
+    fields.layoutType,
+    input.capacity,
+    caller.id,
+    fields.bodyType,
+  );
+
+  const bus = await prisma.bus.findUniqueOrThrow({ where: { id: created.id } });
 
   auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
     action: AuditAction.BUS_CREATED,
@@ -79,10 +184,7 @@ export async function createBus(
     },
   });
 
-  return {
-    ...bus,
-    amenities: bus.amenities ? bus.amenities.split(",") : [],
-  };
+  return formatBus(bus);
 }
 
 export async function listBuses(caller: AuthUser) {
@@ -95,10 +197,7 @@ export async function listBuses(caller: AuthUser) {
     orderBy: { id: "asc" },
   });
 
-  return buses.map((b) => ({
-    ...b,
-    amenities: b.amenities ? b.amenities.split(",") : [],
-  }));
+  return buses.map(formatBus);
 }
 
 export async function getBusById(id: number, caller: AuthUser) {
@@ -112,10 +211,7 @@ export async function getBusById(id: number, caller: AuthUser) {
 
   assertBusOwnership(bus, caller);
 
-  return {
-    ...bus,
-    amenities: bus.amenities ? bus.amenities.split(",") : [],
-  };
+  return formatBus(bus);
 }
 
 export async function updateBus(
@@ -137,12 +233,24 @@ export async function updateBus(
       ? input.operatorId
       : bus.operatorId;
 
+  const parsed =
+    input.bodyType || input.type
+      ? parseBusFields({
+          bodyType: input.bodyType ?? bus.bodyType,
+          layoutType: input.layoutType ?? bus.layoutType,
+          hasAc: input.hasAc ?? bus.hasAc,
+          ...(input.type ? { type: input.type } : {}),
+        })
+      : null;
+
   const updated = await prisma.bus.update({
     where: { id },
     data: {
       name: input.name ?? bus.name,
       capacity: input.capacity ?? bus.capacity,
-      type: (input.type as BusType) ?? bus.type,
+      bodyType: parsed?.bodyType ?? bus.bodyType,
+      layoutType: parsed?.layoutType ?? bus.layoutType,
+      hasAc: parsed?.hasAc ?? bus.hasAc,
       amenities:
         input.amenities !== undefined
           ? input.amenities.join(",")
@@ -162,10 +270,7 @@ export async function updateBus(
     },
   });
 
-  return {
-    ...updated,
-    amenities: updated.amenities ? updated.amenities.split(",") : [],
-  };
+  return formatBus(updated);
 }
 
 export async function deleteBus(

@@ -155,6 +155,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     try {
+      await ref.read(pricingConfigProvider.notifier).loadFromApi();
+      final pricing = ref.read(pricingConfigProvider);
+      await StripeService.instance.ensureConfigured(pricing);
       await presentStripePaymentSheet(payment.clientSecret!);
     } catch (e) {
       if (!isStripeUserCancellation(e) && mounted) {

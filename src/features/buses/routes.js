@@ -5,9 +5,11 @@ import { validate } from "../../core/middleware/validate.middleware.js";
 import { createBusSchema, updateBusSchema } from "./validators.js";
 import { authMiddleware } from "../../core/middleware/auth.middleware.js";
 import { requireRole } from "../../core/middleware/role.middleware.js";
+import { busLayoutRouter } from "../bus-layout/routes.js";
 const router = Router();
 // Public or authenticated list? For now require auth but any role can view
 router.get("/", authMiddleware, listBusesController);
+router.use("/:id/layout", authMiddleware, busLayoutRouter);
 router.get("/:id", authMiddleware, getBusByIdController);
 // Admin and operator modifications
 router.post("/", authMiddleware, requireRole(["ADMIN", "OPERATOR"]), validate(createBusSchema), createBusController);

@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "predev": "node scripts/sync-dev-ip.mjs",
+    "sync-ip": "node scripts/sync-dev-ip.mjs",
+    "watch-ip": "node scripts/watch-dev-ip.mjs",
     "build": "tsc",
     "start": "node dist/server.js"
   },

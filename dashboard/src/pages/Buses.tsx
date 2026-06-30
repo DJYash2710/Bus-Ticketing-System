@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Bus, LayoutGrid, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { createBus, deleteBus, listBuses, updateBus } from '../api/buses'
 import { listOperators } from '../api/operators'
 import { getErrorMessage } from '../api/client'
@@ -13,20 +14,20 @@ import { StatCard } from '../components/StatCard'
 import { StatusBadge, busTypeVariant } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import { validateBusForm } from '../lib/validation'
-import type { Bus as BusType, BusType as BusTypeEnum } from '../types'
+import type { Bus as BusRecord, BusBodyType } from '../types'
 
-const BUS_TYPES: { value: BusTypeEnum; label: string; icon: string }[] = [
+const BODY_TYPES: { value: BusBodyType; label: string; icon: string }[] = [
   { value: 'SEATER', label: 'Seater', icon: '🪑' },
   { value: 'SLEEPER', label: 'Sleeper', icon: '🛏️' },
   { value: 'SEMI_SLEEPER', label: 'Semi-Sleeper', icon: '💺' },
-  { value: 'AC', label: 'AC', icon: '❄️' },
 ]
 
 interface BusFormState {
   registrationNo: string
   name: string
   capacity: number
-  type: BusTypeEnum
+  bodyType: BusBodyType
+  hasAc: boolean
   operatorId: number | ''
 }
 
@@ -34,8 +35,14 @@ const emptyForm: BusFormState = {
   registrationNo: '',
   name: '',
   capacity: 40,
-  type: 'SEATER',
+  bodyType: 'SEATER',
+  hasAc: false,
   operatorId: '',
+}
+
+function busTypeLabel(bus: BusRecord) {
+  const body = bus.bodyType.replace('_', ' ')
+  return bus.hasAc ? `${body} · AC` : body
 }
 
 export function Buses() {
@@ -45,10 +52,10 @@ export function Buses() {
   const isAdmin = hasRole('ADMIN')
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<BusType | null>(null)
+  const [editing, setEditing] = useState<BusRecord | null>(null)
   const [form, setForm] = useState<BusFormState>(emptyForm)
   const [formError, setFormError] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<BusType | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<BusRecord | null>(null)
 
   const busesQuery = useQuery({ queryKey: ['buses'], queryFn: listBuses })
   const operatorsQuery = useQuery({
@@ -66,7 +73,8 @@ export function Buses() {
         return updateBus(editing.id, {
           name: form.name,
           capacity: form.capacity,
-          type: form.type,
+          bodyType: form.bodyType,
+          hasAc: form.hasAc,
           ...(isAdmin && form.operatorId !== ''
             ? { operatorId: form.operatorId as number }
             : {}),
@@ -77,7 +85,8 @@ export function Buses() {
         registrationNo: form.registrationNo,
         name: form.name,
         capacity: form.capacity,
-        type: form.type,
+        bodyType: form.bodyType,
+        hasAc: form.hasAc,
         ...(isAdmin && form.operatorId !== ''
           ? { operatorId: form.operatorId as number }
           : {}),
@@ -110,13 +119,14 @@ export function Buses() {
     setModalOpen(true)
   }
 
-  function openEdit(bus: BusType) {
+  function openEdit(bus: BusRecord) {
     setEditing(bus)
     setForm({
       registrationNo: bus.registrationNo,
       name: bus.name,
       capacity: bus.capacity,
-      type: bus.type,
+      bodyType: bus.bodyType,
+      hasAc: bus.hasAc,
       operatorId: bus.operatorId ?? '',
     })
     setFormError('')
@@ -156,7 +166,7 @@ export function Buses() {
           <StatCard label="Total Fleet" value={buses.length} icon={Bus} hint="Registered vehicles" />
           <StatCard
             label="Active Types"
-            value={new Set(buses.map((b) => b.type)).size}
+            value={new Set(buses.map((b) => b.bodyType)).size}
             icon={Bus}
             iconTone="success"
             hint="Seater, sleeper, etc."
@@ -204,7 +214,7 @@ export function Buses() {
               key: 'type',
               header: 'Type',
               render: (b) => (
-                <StatusBadge label={b.type.replace('_', ' ')} variant={busTypeVariant(b.type)} />
+                <StatusBadge label={busTypeLabel(b)} variant={busTypeVariant(b.bodyType)} />
               ),
             },
             { key: 'cap', header: 'Capacity', render: (b) => `${b.capacity} seats` },
@@ -213,6 +223,13 @@ export function Buses() {
               header: '',
               render: (b) => (
                 <div className="flex justify-end gap-2">
+                  <Link
+                    to={`/buses/${b.id}/layout`}
+                    className="rounded p-1 text-brand hover:bg-brand-light"
+                    title="Edit layout"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Link>
                   <button type="button" onClick={() => openEdit(b)} className="rounded p-1 text-slate-500 hover:bg-slate-100">
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -253,6 +270,7 @@ export function Buses() {
                     value={form.registrationNo}
                     onChange={(e) => setForm({ ...form, registrationNo: e.target.value })}
                     className="input-field"
+                    placeholder="e.g. MH-12-AB-1234"
                     required
                   />
                 </div>
@@ -263,6 +281,7 @@ export function Buses() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="input-field"
+                  placeholder="e.g. Mumbai Express"
                   required
                 />
               </div>
@@ -275,26 +294,27 @@ export function Buses() {
                   value={form.capacity}
                   onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
                   className="input-field"
+                  placeholder="e.g. 40"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium">Bus type</label>
+                <label className="mb-2 block text-sm font-medium">Body type</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {BUS_TYPES.map((t) => (
+                  {BODY_TYPES.map((t) => (
                     <label
                       key={t.value}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                        form.type === t.value
+                        form.bodyType === t.value
                           ? 'border-brand bg-brand-light text-brand'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       <input
                         type="radio"
-                        name="busType"
+                        name="bodyType"
                         value={t.value}
-                        checked={form.type === t.value}
-                        onChange={() => setForm({ ...form, type: t.value })}
+                        checked={form.bodyType === t.value}
+                        onChange={() => setForm({ ...form, bodyType: t.value })}
                         className="sr-only"
                       />
                       <span>{t.icon}</span>
@@ -303,6 +323,14 @@ export function Buses() {
                   ))}
                 </div>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.hasAc}
+                  onChange={(e) => setForm({ ...form, hasAc: e.target.checked })}
+                />
+                Air conditioned (AC)
+              </label>
               {isAdmin && (
                 <div>
                   <label className="mb-1 block text-sm font-medium">Assign operator</label>

@@ -37,7 +37,8 @@ export function validateBusForm(data: {
   registrationNo: string
   name: string
   capacity: number
-  type: string
+  bodyType: string
+  hasAc?: boolean
 }): ValidationResult {
   if (!data.registrationNo || data.registrationNo.length < 3 || data.registrationNo.length > 50) {
     return fail('Registration number must be 3–50 characters')
@@ -47,9 +48,9 @@ export function validateBusForm(data: {
   if (!Number.isInteger(data.capacity) || data.capacity < 1 || data.capacity > 100) {
     return fail('Capacity must be between 1 and 100')
   }
-  const types = ['SEATER', 'SLEEPER', 'SEMI_SLEEPER', 'AC', 'NON_AC']
-  if (!types.includes(data.type)) {
-    return fail('Select a valid bus type')
+  const bodyTypes = ['SEATER', 'SLEEPER', 'SEMI_SLEEPER']
+  if (!bodyTypes.includes(data.bodyType)) {
+    return fail('Select a valid body type')
   }
   return { ok: true }
 }

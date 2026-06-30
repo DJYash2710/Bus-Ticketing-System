@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../bootstrap/bootstrap_provider.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../shared/models/user_role.dart';
 import 'route_paths.dart';
@@ -12,10 +13,14 @@ class RouteGuards {
 
   static String? authRedirect(BuildContext context, GoRouterState state) {
     final container = ProviderScope.containerOf(context, listen: false);
+    final bootstrap = container.read(bootstrapProvider);
     final authState = container.read(authStateProvider);
 
     if (state.matchedLocation == RoutePaths.splash) {
-      return null;
+      if (!bootstrap.isComplete) {
+        return null;
+      }
+      return authState.isAuthenticated ? RoutePaths.search : RoutePaths.login;
     }
 
     final isAuthRoute = state.matchedLocation == RoutePaths.login ||

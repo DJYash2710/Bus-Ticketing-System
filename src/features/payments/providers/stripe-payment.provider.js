@@ -3,6 +3,14 @@ import { getStripeClient } from '../../../config/stripe.js';
 import { ApiError } from '../../../core/utils/apiError.js';
 import { PAYMENT_PROVIDERS, } from './payment-provider.types.js';
 const DEFAULT_CURRENCY = 'inr';
+function compactStripeSnapshot(obj) {
+    return JSON.stringify({
+        id: obj.id,
+        status: obj.status,
+        amount: obj.amount,
+        currency: obj.currency,
+    });
+}
 function toMinorUnits(amount) {
     return Math.round(amount * 100);
 }
@@ -39,7 +47,7 @@ export class StripePaymentProvider {
         return {
             providerRef: paymentIntent.id,
             clientSecret: paymentIntent.client_secret,
-            rawResponse: JSON.stringify(paymentIntent),
+            rawResponse: compactStripeSnapshot(paymentIntent),
         };
     }
     async retrievePayment(providerRef) {
@@ -48,7 +56,26 @@ export class StripePaymentProvider {
         return {
             providerRef: paymentIntent.id,
             status: mapPaymentIntentStatus(paymentIntent.status),
-            rawResponse: JSON.stringify(paymentIntent),
+            stripeStatus: paymentIntent.status,
+            rawResponse: compactStripeSnapshot(paymentIntent),
+        };
+    }
+    async getClientSecret(providerRef) {
+        const stripe = getStripeClient();
+        const paymentIntent = await stripe.paymentIntents.retrieve(providerRef);
+        return paymentIntent.client_secret;
+    }
+    async refundPayment(input) {
+        const stripe = getStripeClient();
+        const refund = await stripe.refunds.create({
+            payment_intent: input.paymentIntentId,
+            metadata: input.reason ? { reason: input.reason } : undefined,
+        }, {
+            idempotencyKey: input.idempotencyKey,
+        });
+        return {
+            refundId: refund.id,
+            rawResponse: compactStripeSnapshot(refund),
         };
     }
     constructWebhookEvent(payload, signature) {

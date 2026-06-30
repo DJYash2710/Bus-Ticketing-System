@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/booking_constants.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_header.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../shared/widgets/bus_seat_diagram.dart';
 import '../../bookings/providers/booking_flow_provider.dart';
 import '../models/seat_layout_data.dart';
 import '../providers/seats_providers.dart';
@@ -42,15 +44,35 @@ class SeatSelectionScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
+                      final geometry = layout.layout;
+                      final gridWidth = geometry != null
+                          ? geometry.seatsLeft + 1 + geometry.seatsRight
+                          : 5;
                       final seatSize =
-                          (constraints.maxWidth / 8).clamp(32.0, 44.0);
-                      return _SeatGrid(
+                          (constraints.maxWidth / (gridWidth + 2)).clamp(28.0, 44.0);
+                      return BusSeatDiagram(
                         seats: layout.seats,
+                        layout: layout.layout,
                         selectedIds: selectedIds,
                         seatSize: seatSize,
-                        onTap: (seat) => ref
-                            .read(bookingFlowProvider.notifier)
-                            .toggleSeat(seat),
+                        onSeatTap: (seat) {
+                          final flow = ref.read(bookingFlowProvider);
+                          final atLimit =
+                              flow.selectedSeats.length >=
+                                  BookingConstants.maxSeatsPerBooking &&
+                              !selectedIds.contains(seat.id);
+                          if (atLimit) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('You can select up to 5 seats'),
+                              ),
+                            );
+                            return;
+                          }
+                          ref
+                              .read(bookingFlowProvider.notifier)
+                              .toggleSeat(seat);
+                        },
                       );
                     },
                   ),
@@ -58,6 +80,7 @@ class SeatSelectionScreen extends ConsumerWidget {
               ),
               _BottomBar(
                 count: flow.selectedSeats.length,
+                maxSeats: BookingConstants.maxSeatsPerBooking,
                 seatsLabel: flow.seatNumbersLabel,
                 total: flow.baseFare,
                 onContinue: flow.selectedSeats.isEmpty
@@ -160,156 +183,17 @@ class _LegendItem extends StatelessWidget {
   }
 }
 
-class _SeatGrid extends StatelessWidget {
-  const _SeatGrid({
-    required this.seats,
-    required this.selectedIds,
-    required this.onTap,
-    required this.seatSize,
-  });
-
-  final List<SeatMapItem> seats;
-  final Set<int> selectedIds;
-  final ValueChanged<SeatMapItem> onTap;
-  final double seatSize;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <int, List<SeatMapItem>>{};
-    for (final seat in seats) {
-      rows.putIfAbsent(seat.row ?? 0, () => []).add(seat);
-    }
-
-    final sortedRows = rows.keys.toList()..sort();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Align(
-              alignment: Alignment.centerRight,
-              child: Icon(Icons.settings_rounded, color: AppColors.textSecondary),
-            ),
-            const Text('LOWER DECK',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-            const SizedBox(height: 12),
-            ...sortedRows.map((rowNum) {
-              final rowSeats = rows[rowNum] ?? [];
-              rowSeats.sort((a, b) => (a.col ?? 0).compareTo(b.col ?? 0));
-              final displayRow = rowNum + 1;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: rowSeats
-                            .where((s) => (s.col ?? 0) <= 2)
-                            .map((s) => _SeatCell(
-                                  seat: s,
-                                  selected: selectedIds.contains(s.id),
-                                  size: seatSize,
-                                  onTap: () => onTap(s),
-                                ))
-                            .toList(),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 28,
-                      child: Text('$displayRow',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: rowSeats
-                            .where((s) => (s.col ?? 0) > 2)
-                            .map((s) => _SeatCell(
-                                  seat: s,
-                                  selected: selectedIds.contains(s.id),
-                                  size: seatSize,
-                                  onTap: () => onTap(s),
-                                ))
-                            .toList(),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SeatCell extends StatelessWidget {
-  const _SeatCell({
-    required this.seat,
-    required this.selected,
-    required this.onTap,
-    required this.size,
-  });
-
-  final SeatMapItem seat;
-  final bool selected;
-  final VoidCallback onTap;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = seat.status != SeatMapStatus.available && !selected;
-    Color bg = Colors.white;
-    Color border = AppColors.primary;
-    if (selected) {
-      bg = AppColors.primary;
-    } else if (seat.status == SeatMapStatus.booked) {
-      bg = const Color(0xFFE5E7EB);
-      border = Colors.grey.shade300;
-    } else if (seat.status == SeatMapStatus.held) {
-      bg = AppColors.holdSeat;
-      border = AppColors.holdSeat;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(3),
-      child: InkWell(
-        onTap: disabled ? null : onTap,
-        child: Container(
-          width: size,
-          height: size,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: border),
-          ),
-          child: Text(
-            seat.seatNumber,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.count,
+    required this.maxSeats,
     required this.seatsLabel,
     required this.total,
     required this.onContinue,
   });
 
   final int count;
+  final int maxSeats;
   final String seatsLabel;
   final double total;
   final VoidCallback? onContinue;
@@ -327,7 +211,7 @@ class _BottomBar extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text('SELECTED $count Seats ($seatsLabel)'),
+                child: Text('SELECTED $count/$maxSeats Seats ($seatsLabel)'),
               ),
               Text(
                 'TOTAL ${formatCurrency(total)}',

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/pricing_config.dart';
+import '../../../core/constants/booking_constants.dart';
 import '../../search/models/search_result.dart';
 import '../../seats/models/seat_layout_data.dart';
 
@@ -144,6 +145,9 @@ class BookingFlowNotifier extends Notifier<BookingFlowState> {
     if (exists) {
       selected.removeWhere((s) => s.id == seat.id);
     } else if (seat.status == SeatMapStatus.available) {
+      if (selected.length >= BookingConstants.maxSeatsPerBooking) {
+        return;
+      }
       selected.add(seat);
     }
     state = state.copyWith(selectedSeats: selected);

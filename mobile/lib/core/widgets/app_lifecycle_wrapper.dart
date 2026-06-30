@@ -37,10 +37,7 @@ class _AppLifecycleWrapperState extends State<AppLifecycleWrapper>
   Widget build(BuildContext context) {
     return KeyedSubtree(
       key: _layoutKey,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: widget.child,
-      ),
+      child: widget.child,
     );
   }
 }

@@ -2,7 +2,9 @@
 import {
   PrismaClient,
   UserRole,
-  BusType,
+  BusBodyType,
+  BusLayoutType,
+  LayoutElementType,
   ScheduleStatus,
   SeatStatus,
   BookingStatus,
@@ -11,6 +13,7 @@ import {
   LoyaltyEventType,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { generateLayoutFromTemplate } from "../src/lib/bus-layout/templates.js";
 
 const prisma = new PrismaClient();
 
@@ -33,7 +36,7 @@ function dt(
   return d;
 }
 
-// Simple 2+2 seater layout → cols A B C D
+// Simple 2+2 seater layout → cols A B C D (legacy fallback)
 function generateSeats(capacity: number) {
   const cols = ["A", "B", "C", "D"];
   const seats: {
@@ -55,6 +58,92 @@ function generateSeats(capacity: number) {
   }
 
   return seats;
+}
+
+type LegacyBusType =
+  | "SEATER"
+  | "SLEEPER"
+  | "SEMI_SLEEPER"
+  | "AC"
+  | "NON_AC";
+
+function legacyBusFields(type: LegacyBusType): {
+  bodyType: BusBodyType;
+  hasAc: boolean;
+  layoutType: BusLayoutType;
+} {
+  switch (type) {
+    case "SLEEPER":
+      return {
+        bodyType: BusBodyType.SLEEPER,
+        hasAc: false,
+        layoutType: BusLayoutType.SLEEPER_1_1,
+      };
+    case "SEMI_SLEEPER":
+      return {
+        bodyType: BusBodyType.SEMI_SLEEPER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_1,
+      };
+    case "AC":
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: true,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+    case "NON_AC":
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+    default:
+      return {
+        bodyType: BusBodyType.SEATER,
+        hasAc: false,
+        layoutType: BusLayoutType.SEATER_2_2,
+      };
+  }
+}
+
+async function ensureBusLayout(bus: {
+  id: number;
+  capacity: number;
+  layoutType: BusLayoutType;
+  currentLayoutId: number | null;
+}) {
+  if (bus.currentLayoutId) {
+    return bus.currentLayoutId;
+  }
+
+  const generated = generateLayoutFromTemplate(bus.layoutType, bus.capacity, bus.bodyType);
+  const layout = await prisma.busLayout.create({
+    data: {
+      busId: bus.id,
+      version: 1,
+      layoutType: generated.layoutType,
+      seatsLeft: generated.seatsLeft,
+      seatsRight: generated.seatsRight,
+      seatCapacity: generated.seatCapacity,
+      elements: {
+        create: generated.elements.map((el) => ({
+          type: el.type,
+          deck: el.deck ?? "LOWER",
+          row: el.row,
+          col: el.col,
+          label: el.label ?? null,
+          seatNumber: el.seatNumber ?? null,
+        })),
+      },
+    },
+  });
+
+  await prisma.bus.update({
+    where: { id: bus.id },
+    data: { currentLayoutId: layout.id, capacity: generated.seatCapacity },
+  });
+
+  return layout.id;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -271,7 +360,7 @@ async function main() {
       registrationNo: "MH01AB1234",
       name: "Mumbai Express",
       capacity: 40,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC,WiFi,Charging Port",
       operatorId: busOp.id,
     },
@@ -279,7 +368,7 @@ async function main() {
       registrationNo: "MH12XY5678",
       name: "Pune Nighter",
       capacity: 36,
-      type: BusType.SLEEPER,
+      type: "SLEEPER" as LegacyBusType,
       amenities: "AC,Blanket,Water Bottle",
       operatorId: busOp.id,
     },
@@ -287,7 +376,7 @@ async function main() {
       registrationNo: "GJ05CD9999",
       name: "Gujarat Connector",
       capacity: 40,
-      type: BusType.SEMI_SLEEPER,
+      type: "SEMI_SLEEPER" as LegacyBusType,
       amenities: "AC,Charging Port",
       operatorId: busOp.id,
     },
@@ -295,7 +384,7 @@ async function main() {
       registrationNo: "MH20EF3333",
       name: "Deccan Cruiser",
       capacity: 40,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,WiFi,Snacks,USB Ports",
       operatorId: busOp.id,
     },
@@ -303,7 +392,7 @@ async function main() {
       registrationNo: "MH22GH1111",
       name: "Konkan King",
       capacity: 44,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,WiFi",
       operatorId: busOp.id,
     },
@@ -311,7 +400,7 @@ async function main() {
       registrationNo: "MH22GH2222",
       name: "Sahyadri Express",
       capacity: 40,
-      type: BusType.SEMI_SLEEPER,
+      type: "SEMI_SLEEPER" as LegacyBusType,
       amenities: "AC,Blanket",
       operatorId: busOp.id,
     },
@@ -319,7 +408,7 @@ async function main() {
       registrationNo: "MH22GH3333",
       name: "Western Star",
       capacity: 36,
-      type: BusType.SLEEPER,
+      type: "SLEEPER" as LegacyBusType,
       amenities: "AC,Water",
       operatorId: busOp.id,
     },
@@ -327,7 +416,7 @@ async function main() {
       registrationNo: "MH22GH4444",
       name: "Vidarbha Express",
       capacity: 40,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC",
       operatorId: busOp.id,
     },
@@ -335,7 +424,7 @@ async function main() {
       registrationNo: "GJ22IJ1111",
       name: "Sabarmati Cruiser",
       capacity: 40,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,WiFi,Charging",
       operatorId: busOp.id,
     },
@@ -343,7 +432,7 @@ async function main() {
       registrationNo: "GJ22IJ2222",
       name: "Diamond Express",
       capacity: 40,
-      type: BusType.SEMI_SLEEPER,
+      type: "SEMI_SLEEPER" as LegacyBusType,
       amenities: "AC",
       operatorId: busOp.id,
     },
@@ -351,7 +440,7 @@ async function main() {
       registrationNo: "MH22KL1111",
       name: "Nashik Flyer",
       capacity: 40,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC,WiFi",
       operatorId: busOp.id,
     },
@@ -359,7 +448,7 @@ async function main() {
       registrationNo: "MH22KL2222",
       name: "Aurangabad Express",
       capacity: 40,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,Snacks",
       operatorId: busOp.id,
     },
@@ -367,7 +456,7 @@ async function main() {
       registrationNo: "MH22KL3333",
       name: "Pune Metro Link",
       capacity: 44,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC,USB",
       operatorId: busOp.id,
     },
@@ -375,7 +464,7 @@ async function main() {
       registrationNo: "MH22KL4444",
       name: "Mumbai Premium",
       capacity: 36,
-      type: BusType.SLEEPER,
+      type: "SLEEPER" as LegacyBusType,
       amenities: "AC,Blanket,WiFi",
       operatorId: busOp.id,
     },
@@ -383,7 +472,7 @@ async function main() {
       registrationNo: "GJ22MN1111",
       name: "Surat Shuttle",
       capacity: 40,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC",
       operatorId: busOp.id,
     },
@@ -391,7 +480,7 @@ async function main() {
       registrationNo: "GJ22MN2222",
       name: "Ahmedabad Express",
       capacity: 40,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,WiFi",
       operatorId: busOp.id,
     },
@@ -399,7 +488,7 @@ async function main() {
       registrationNo: "GJ22MN3333",
       name: "Vadodara Connect",
       capacity: 40,
-      type: BusType.SEMI_SLEEPER,
+      type: "SEMI_SLEEPER" as LegacyBusType,
       amenities: "AC,Charging",
       operatorId: busOp.id,
     },
@@ -407,7 +496,7 @@ async function main() {
       registrationNo: "MH22OP1111",
       name: "Deccan Queen",
       capacity: 40,
-      type: BusType.AC,
+      type: "AC" as LegacyBusType,
       amenities: "AC,WiFi,Snacks",
       operatorId: busOp.id,
     },
@@ -415,7 +504,7 @@ async function main() {
       registrationNo: "MH22OP2222",
       name: "Maharashtra Express",
       capacity: 44,
-      type: BusType.SEATER,
+      type: "SEATER" as LegacyBusType,
       amenities: "AC",
       operatorId: busOp.id,
     },
@@ -423,21 +512,44 @@ async function main() {
       registrationNo: "MH22OP3333",
       name: "Night Rider",
       capacity: 36,
-      type: BusType.SLEEPER,
+      type: "SLEEPER" as LegacyBusType,
       amenities: "AC,Blanket",
       operatorId: busOp.id,
     },
   ];
 
-  const buses: Record<string, { id: number; capacity: number }> = {};
+  const buses: Record<string, { id: number; capacity: number; currentLayoutId: number | null; layoutType: BusLayoutType }> = {};
 
   for (const b of busData) {
+    const fields = legacyBusFields(b.type);
     const bus = await prisma.bus.upsert({
       where: { registrationNo: b.registrationNo },
       update: {},
-      create: b,
+      create: {
+        registrationNo: b.registrationNo,
+        name: b.name,
+        capacity: b.capacity,
+        bodyType: fields.bodyType,
+        layoutType: fields.layoutType,
+        hasAc: fields.hasAc,
+        amenities: b.amenities,
+        operatorId: b.operatorId,
+      },
     });
-    buses[b.name] = bus;
+
+    const layoutId = await ensureBusLayout({
+      id: bus.id,
+      capacity: bus.capacity,
+      layoutType: bus.layoutType,
+      currentLayoutId: bus.currentLayoutId,
+    });
+
+    buses[b.name] = {
+      id: bus.id,
+      capacity: bus.capacity,
+      currentLayoutId: layoutId,
+      layoutType: bus.layoutType,
+    };
   }
 
   console.log(`✅ Buses (${busData.length}): ${Object.keys(buses).join(", ")}`);
@@ -656,6 +768,7 @@ async function main() {
           arrivalTime: arrTime,
           basePrice: s.basePrice,
           status: ScheduleStatus.ACTIVE,
+          busLayoutId: buses[s.busName]!.currentLayoutId,
         },
       }));
 
@@ -676,14 +789,20 @@ async function main() {
     if (count > 0) continue;
 
     const bus = await prisma.bus.findUnique({ where: { id: sched.busId } });
-    if (!bus) continue;
+    if (!bus?.currentLayoutId) continue;
 
-    const seatDefs = generateSeats(bus.capacity);
+    const seatElements = await prisma.busLayoutElement.findMany({
+      where: {
+        layoutId: bus.currentLayoutId,
+        type: LayoutElementType.SEAT,
+      },
+      orderBy: [{ row: "asc" }, { col: "asc" }],
+    });
 
     await prisma.seat.createMany({
-      data: seatDefs.map((s) => ({
+      data: seatElements.map((s) => ({
         scheduleId: sched.id,
-        seatNumber: s.seatNumber,
+        seatNumber: s.seatNumber!,
         row: s.row,
         col: s.col,
         deck: s.deck,
@@ -691,7 +810,7 @@ async function main() {
       })),
     });
 
-    totalSeats += seatDefs.length;
+    totalSeats += seatElements.length;
   }
 
   console.log(

@@ -36,15 +36,44 @@ export declare function listSeatsBySchedule(filters: ListSeatsFilters): Promise<
             };
         };
         bus: {
+            currentLayout: ({
+                elements: {
+                    row: number;
+                    id: number;
+                    type: import(".prisma/client").$Enums.LayoutElementType;
+                    label: string | null;
+                    deck: import(".prisma/client").$Enums.BusDeck;
+                    col: number;
+                    seatNumber: string | null;
+                    layoutId: number;
+                }[];
+            } & {
+                id: number;
+                version: number;
+                hasUpperDeck: boolean;
+                busId: number;
+                layoutType: import(".prisma/client").$Enums.BusLayoutType;
+                seatsLeft: number;
+                seatsRight: number;
+                seatCapacity: number;
+                lowerDeckCapacity: number | null;
+                upperDeckCapacity: number | null;
+                createdByUserId: number | null;
+                createdAt: Date;
+            }) | null;
+        } & {
             name: string;
             id: number;
-            type: import(".prisma/client").$Enums.BusType;
+            layoutType: import(".prisma/client").$Enums.BusLayoutType;
+            bodyType: import(".prisma/client").$Enums.BusBodyType;
+            hasAc: boolean;
             operatorId: number | null;
             registrationNo: string;
             capacity: number;
             createdAt: Date;
-            updatedAt: Date;
+            currentLayoutId: number | null;
             amenities: string | null;
+            updatedAt: Date;
         };
     };
     summary: {
@@ -57,17 +86,46 @@ export declare function listSeatsBySchedule(filters: ListSeatsFilters): Promise<
         row: number | null;
         status: import(".prisma/client").$Enums.SeatStatus;
         id: number;
+        deck: string | null;
+        col: number | null;
+        seatNumber: string;
         scheduleId: number;
         createdAt: Date;
         updatedAt: Date;
-        seatNumber: string;
-        col: number | null;
-        deck: string | null;
         heldUntil: Date | null;
     }[];
+    layout: {
+        seatsLeft: number;
+        seatsRight: number;
+        layoutType: import(".prisma/client").$Enums.BusLayoutType;
+        version: number;
+        fromSnapshot: boolean;
+        hasUpperDeck: boolean;
+        capElements: {
+            type: import(".prisma/client").$Enums.LayoutElementType;
+            deck: import(".prisma/client").$Enums.BusDeck;
+            row: number;
+            col: number;
+            label: string | null;
+        }[];
+    } | null;
 }>;
 export declare function getSeatById(id: number): Promise<{
     schedule: {
+        bus: {
+            name: string;
+            id: number;
+            layoutType: import(".prisma/client").$Enums.BusLayoutType;
+            bodyType: import(".prisma/client").$Enums.BusBodyType;
+            hasAc: boolean;
+            operatorId: number | null;
+            registrationNo: string;
+            capacity: number;
+            createdAt: Date;
+            currentLayoutId: number | null;
+            amenities: string | null;
+            updatedAt: Date;
+        };
         route: {
             fromCity: {
                 name: string;
@@ -98,30 +156,20 @@ export declare function getSeatById(id: number): Promise<{
             updatedAt: Date;
             estimatedDurationMinutes: number | null;
         };
-        bus: {
-            name: string;
-            id: number;
-            type: import(".prisma/client").$Enums.BusType;
-            operatorId: number | null;
-            registrationNo: string;
-            capacity: number;
-            createdAt: Date;
-            updatedAt: Date;
-            amenities: string | null;
-        };
     } & {
         status: import(".prisma/client").$Enums.ScheduleStatus;
         id: number;
         color: string | null;
         basePrice: import("@prisma/client/runtime/library").Decimal;
-        departureTime: Date;
         busId: number;
+        departureTime: Date;
         routeId: number;
         createdAt: Date;
         updatedAt: Date;
         arrivalTime: Date | null;
         recurrenceGroupId: string | null;
         isRecurrenceException: boolean;
+        busLayoutId: number | null;
     };
     bookingSeats: ({
         booking: {
@@ -156,16 +204,30 @@ export declare function getSeatById(id: number): Promise<{
     row: number | null;
     status: import(".prisma/client").$Enums.SeatStatus;
     id: number;
+    deck: string | null;
+    col: number | null;
+    seatNumber: string;
     scheduleId: number;
     createdAt: Date;
     updatedAt: Date;
-    seatNumber: string;
-    col: number | null;
-    deck: string | null;
     heldUntil: Date | null;
 }>;
 export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInput, caller: AuthUser, audit?: AuditContext): Promise<{
     schedule: {
+        bus: {
+            name: string;
+            id: number;
+            layoutType: import(".prisma/client").$Enums.BusLayoutType;
+            bodyType: import(".prisma/client").$Enums.BusBodyType;
+            hasAc: boolean;
+            operatorId: number | null;
+            registrationNo: string;
+            capacity: number;
+            createdAt: Date;
+            currentLayoutId: number | null;
+            amenities: string | null;
+            updatedAt: Date;
+        };
         route: {
             fromCity: {
                 name: string;
@@ -196,41 +258,31 @@ export declare function updateSeatStatus(id: number, input: UpdateSeatStatusInpu
             updatedAt: Date;
             estimatedDurationMinutes: number | null;
         };
-        bus: {
-            name: string;
-            id: number;
-            type: import(".prisma/client").$Enums.BusType;
-            operatorId: number | null;
-            registrationNo: string;
-            capacity: number;
-            createdAt: Date;
-            updatedAt: Date;
-            amenities: string | null;
-        };
     } & {
         status: import(".prisma/client").$Enums.ScheduleStatus;
         id: number;
         color: string | null;
         basePrice: import("@prisma/client/runtime/library").Decimal;
-        departureTime: Date;
         busId: number;
+        departureTime: Date;
         routeId: number;
         createdAt: Date;
         updatedAt: Date;
         arrivalTime: Date | null;
         recurrenceGroupId: string | null;
         isRecurrenceException: boolean;
+        busLayoutId: number | null;
     };
 } & {
     row: number | null;
     status: import(".prisma/client").$Enums.SeatStatus;
     id: number;
+    deck: string | null;
+    col: number | null;
+    seatNumber: string;
     scheduleId: number;
     createdAt: Date;
     updatedAt: Date;
-    seatNumber: string;
-    col: number | null;
-    deck: string | null;
     heldUntil: Date | null;
 }>;
 export {};

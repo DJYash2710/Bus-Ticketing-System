@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from './client'
-import type { Bus, BusType } from '../types'
+import type { Bus, BusBodyType, BusLayoutType } from '../types'
 
 export async function listBuses() {
   const res = await apiClient.get('/buses')
@@ -15,7 +15,9 @@ export async function createBus(data: {
   registrationNo: string
   name: string
   capacity: number
-  type: BusType
+  bodyType: BusBodyType
+  layoutType?: BusLayoutType
+  hasAc?: boolean
   amenities?: string[]
   operatorId?: number | null
 }) {
@@ -28,7 +30,9 @@ export async function updateBus(
   data: {
     name?: string
     capacity?: number
-    type?: BusType
+    bodyType?: BusBodyType
+    layoutType?: BusLayoutType
+    hasAc?: boolean
     amenities?: string[]
     operatorId?: number | null
   },

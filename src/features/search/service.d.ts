@@ -56,7 +56,9 @@ export declare function searchSchedules(input: SearchSchedulesInput): Promise<{
             id: number;
             name: string;
             registrationNo: string;
-            type: import(".prisma/client").$Enums.BusType;
+            bodyType: import(".prisma/client").$Enums.BusBodyType;
+            hasAc: boolean;
+            layoutType: import(".prisma/client").$Enums.BusLayoutType;
             capacity: number;
             amenities: string | null;
         };

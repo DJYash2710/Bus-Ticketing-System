@@ -260,9 +260,12 @@ class _ReviewBookingScreenState extends ConsumerState<ReviewBookingScreen> {
               Expanded(
                 child: TextField(
                   controller: _couponController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Coupon code',
                     hintText: 'SAVE10',
+                    hintStyle: TextStyle(
+                      color: AppColors.textSecondary.withValues(alpha: 0.2),
+                    ),
                   ),
                 ),
               ),

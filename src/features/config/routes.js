@@ -9,6 +9,8 @@ router.get("/", (_req, res) => {
         loyaltyPointValue: env.loyaltyPointValue,
         loyaltyEarnRate: env.loyaltyEarnRate,
         referralBonusCredits: env.referralBonusCredits,
+        paymentProvider: env.paymentProvider,
+        stripePublishableKey: env.paymentProvider === 'STRIPE' ? env.stripe.publishableKey : '',
     });
 });
 export const configRouter = router;

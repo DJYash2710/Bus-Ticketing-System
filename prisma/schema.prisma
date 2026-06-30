@@ -15,12 +15,32 @@ enum UserRole {
   OPERATOR
 }
 
-enum BusType {
+enum BusBodyType {
   SEATER
   SLEEPER
   SEMI_SLEEPER
-  AC
-  NON_AC
+}
+
+enum BusLayoutType {
+  SEATER_2_2
+  SEATER_2_1
+  SLEEPER_1_1
+}
+
+enum LayoutElementType {
+  SEAT
+  DRIVER
+  EXIT_FRONT
+  EXIT_REAR
+  EXIT_FIRE
+  WASHROOM
+  ENGINE
+  ROOF_EXIT
+}
+
+enum BusDeck {
+  LOWER
+  UPPER
 }
 
 enum ScheduleStatus {
@@ -188,19 +208,64 @@ model Route {
 // ─── Bus ─────────────────────────────────────────────────────────────────────
 
 model Bus {
-  id             Int     @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   operatorId     Int?
-  registrationNo String  @unique
+  registrationNo String        @unique
   name           String
+  bodyType       BusBodyType
+  layoutType     BusLayoutType @default(SEATER_2_2)
+  hasAc          Boolean       @default(false)
   capacity       Int
-  type           BusType
   amenities      String?
+  currentLayoutId Int?         @unique
 
-  operator  BusOperator? @relation(fields: [operatorId], references: [id])
-  schedules Schedule[]
+  operator      BusOperator? @relation(fields: [operatorId], references: [id])
+  currentLayout BusLayout?   @relation("BusCurrentLayout", fields: [currentLayoutId], references: [id])
+  layouts       BusLayout[]  @relation("BusLayouts")
+  schedules     Schedule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model BusLayout {
+  id              Int           @id @default(autoincrement())
+  busId           Int
+  version         Int
+  layoutType      BusLayoutType
+  seatsLeft       Int           @default(2)
+  seatsRight      Int           @default(2)
+  hasUpperDeck    Boolean       @default(false)
+  lowerDeckCapacity Int?
+  upperDeckCapacity Int?
+  seatCapacity    Int
+  createdByUserId Int?
+  createdAt       DateTime      @default(now())
+
+  bus        Bus                @relation("BusLayouts", fields: [busId], references: [id], onDelete: Cascade)
+  currentFor Bus?               @relation("BusCurrentLayout")
+  elements   BusLayoutElement[]
+  schedules  Schedule[]
+
+  @@unique([busId, version])
+  @@index([busId])
+}
+
+model BusLayoutElement {
+  id         Int               @id @default(autoincrement())
+  layoutId   Int
+  type       LayoutElementType
+  deck       BusDeck           @default(LOWER)
+  row        Int
+  col        Int
+  label      String?
+  seatNumber String?
+
+  layout BusLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+
+  @@unique([layoutId, deck, row, col])
+  @@unique([layoutId, seatNumber])
+  @@index([layoutId, type])
 }
 
 // ─── Schedule ────────────────────────────────────────────────────────────────
@@ -216,11 +281,13 @@ model Schedule {
   color                  String?        @default("#4F46E5")
   recurrenceGroupId      String?
   isRecurrenceException  Boolean        @default(false)
+  busLayoutId            Int?
 
-  route    Route     @relation(fields: [routeId], references: [id])
-  bus      Bus       @relation(fields: [busId], references: [id])
-  seats    Seat[]
-  bookings Booking[]
+  route     Route      @relation(fields: [routeId], references: [id])
+  bus       Bus        @relation(fields: [busId], references: [id])
+  busLayout BusLayout? @relation(fields: [busLayoutId], references: [id])
+  seats     Seat[]
+  bookings  Booking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,9 +1,62 @@
 // src/features/buses/service.ts
+import { BusBodyType, BusLayoutType, } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../core/utils/apiError.js";
 import { isOperator, requireOperatorFleetId, } from "../../core/utils/operatorScope.js";
 import { AuditAction, AuditEntityType } from "../../core/audit/actions.js";
 import { auditLogFrom } from "../../core/audit/auditLog.service.js";
+import { createInitialLayoutForBus } from "../bus-layout/service.js";
+import { defaultLayoutTypeForBody } from "../../lib/bus-layout/templates.js";
+function parseBusFields(input) {
+    if (input.bodyType) {
+        const bodyType = input.bodyType;
+        return {
+            bodyType,
+            hasAc: input.hasAc ?? false,
+            layoutType: input.layoutType ??
+                defaultLayoutTypeForBody(bodyType),
+        };
+    }
+    switch (input.type) {
+        case "SLEEPER":
+            return {
+                bodyType: BusBodyType.SLEEPER,
+                hasAc: false,
+                layoutType: BusLayoutType.SLEEPER_1_1,
+            };
+        case "SEMI_SLEEPER":
+            return {
+                bodyType: BusBodyType.SEMI_SLEEPER,
+                hasAc: false,
+                layoutType: BusLayoutType.SEATER_2_1,
+            };
+        case "AC":
+            return {
+                bodyType: BusBodyType.SEATER,
+                hasAc: true,
+                layoutType: BusLayoutType.SEATER_2_2,
+            };
+        case "NON_AC":
+            return {
+                bodyType: BusBodyType.SEATER,
+                hasAc: false,
+                layoutType: BusLayoutType.SEATER_2_2,
+            };
+        case "SEATER":
+        default:
+            return {
+                bodyType: BusBodyType.SEATER,
+                hasAc: false,
+                layoutType: BusLayoutType.SEATER_2_2,
+            };
+    }
+}
+function formatBus(bus) {
+    return {
+        ...bus,
+        amenities: bus.amenities ? bus.amenities.split(",") : [],
+    };
+}
 function assertBusOwnership(bus, caller) {
     if (!isOperator(caller)) {
         return;
@@ -23,16 +76,21 @@ export async function createBus(input, caller, audit) {
     const operatorId = isOperator(caller)
         ? requireOperatorFleetId(caller)
         : (input.operatorId ?? null);
-    const bus = await prisma.bus.create({
+    const fields = parseBusFields(input);
+    const created = await prisma.bus.create({
         data: {
             registrationNo: input.registrationNo,
             name: input.name,
             capacity: input.capacity,
-            type: input.type,
+            bodyType: fields.bodyType,
+            layoutType: fields.layoutType,
+            hasAc: fields.hasAc,
             amenities: input.amenities ? input.amenities.join(",") : null,
             operatorId,
         },
     });
+    await createInitialLayoutForBus(created.id, fields.layoutType, input.capacity, caller.id, fields.bodyType);
+    const bus = await prisma.bus.findUniqueOrThrow({ where: { id: created.id } });
     auditLogFrom(audit ?? { actorId: caller.id, actorRole: caller.role }, {
         action: AuditAction.BUS_CREATED,
         entityType: AuditEntityType.BUS,
@@ -43,10 +101,7 @@ export async function createBus(input, caller, audit) {
             capacity: bus.capacity,
         },
     });
-    return {
-        ...bus,
-        amenities: bus.amenities ? bus.amenities.split(",") : [],
-    };
+    return formatBus(bus);
 }
 export async function listBuses(caller) {
     const where = isOperator(caller)
@@ -56,10 +111,7 @@ export async function listBuses(caller) {
         where,
         orderBy: { id: "asc" },
     });
-    return buses.map((b) => ({
-        ...b,
-        amenities: b.amenities ? b.amenities.split(",") : [],
-    }));
+    return buses.map(formatBus);
 }
 export async function getBusById(id, caller) {
     const bus = await prisma.bus.findUnique({
@@ -69,10 +121,7 @@ export async function getBusById(id, caller) {
         throw new ApiError(404, "Bus not found");
     }
     assertBusOwnership(bus, caller);
-    return {
-        ...bus,
-        amenities: bus.amenities ? bus.amenities.split(",") : [],
-    };
+    return formatBus(bus);
 }
 export async function updateBus(id, input, caller, audit) {
     const bus = await prisma.bus.findUnique({ where: { id } });
@@ -85,12 +134,22 @@ export async function updateBus(id, input, caller, audit) {
         : input.operatorId !== undefined
             ? input.operatorId
             : bus.operatorId;
+    const parsed = input.bodyType || input.type
+        ? parseBusFields({
+            bodyType: input.bodyType ?? bus.bodyType,
+            layoutType: input.layoutType ?? bus.layoutType,
+            hasAc: input.hasAc ?? bus.hasAc,
+            ...(input.type ? { type: input.type } : {}),
+        })
+        : null;
     const updated = await prisma.bus.update({
         where: { id },
         data: {
             name: input.name ?? bus.name,
             capacity: input.capacity ?? bus.capacity,
-            type: input.type ?? bus.type,
+            bodyType: parsed?.bodyType ?? bus.bodyType,
+            layoutType: parsed?.layoutType ?? bus.layoutType,
+            hasAc: parsed?.hasAc ?? bus.hasAc,
             amenities: input.amenities !== undefined
                 ? input.amenities.join(",")
                 : bus.amenities,
@@ -107,10 +166,7 @@ export async function updateBus(id, input, caller, audit) {
             capacity: updated.capacity,
         },
     });
-    return {
-        ...updated,
-        amenities: updated.amenities ? updated.amenities.split(",") : [],
-    };
+    return formatBus(updated);
 }
 export async function deleteBus(id, caller, audit) {
     const bus = await prisma.bus.findUnique({ where: { id } });

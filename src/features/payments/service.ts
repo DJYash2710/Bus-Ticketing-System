@@ -320,6 +320,12 @@ async function initiateStripePayment(
   if (!isStripeConfigured()) {
     throw new ApiError(500, "STRIPE_SECRET_KEY is not configured");
   }
+  if (!env.stripe.publishableKey) {
+    throw new ApiError(
+      500,
+      "STRIPE_PUBLISHABLE_KEY is not configured (required for mobile checkout)",
+    );
+  }
 
   const existing = await prisma.payment.findUnique({ where: { bookingId: booking.id } });
 

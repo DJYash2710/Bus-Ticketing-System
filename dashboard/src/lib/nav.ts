@@ -25,7 +25,7 @@ const allNavItems: NavItem[] = [
   { label: 'Overview', path: '/', icon: LayoutDashboard, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'My Buses', path: '/buses', icon: Bus, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'My Schedules', path: '/schedules', icon: Calendar, roles: ['ADMIN', 'OPERATOR'] },
-  { label: 'Seat Layout', path: '/seats', icon: Armchair, roles: ['ADMIN', 'OPERATOR'] },
+  { label: 'Bus Layout', path: '/seats', icon: Armchair, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'My Bookings', path: '/bookings', icon: ClipboardList, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'Profile', path: '/profile', icon: User, roles: ['ADMIN', 'OPERATOR'] },
   { label: 'Bus Stops', path: '/bus-stops', icon: MapPin, roles: ['ADMIN', 'OPERATOR'] },

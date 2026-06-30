@@ -25,6 +25,8 @@ export declare const env: {
     stripe: {
         secretKey: string;
         webhookSecret: string;
+        publishableKey: string;
     };
+    paymentProvider: "MOCK" | "STRIPE";
 };
 //# sourceMappingURL=env.d.ts.map
